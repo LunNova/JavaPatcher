@@ -3,7 +3,7 @@ package me.nallar.javapatcher.mappings;
 import java.util.*;
 
 public abstract class Mappings {
-	@SuppressWarnings("unchecked")
+	@SuppressWarnings({"unchecked", "rawtypes"})
 	public List<?> map(List<?> things) {
 		List mappedThings = new ArrayList();
 		for (Object thing : things) {

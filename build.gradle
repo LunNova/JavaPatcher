@@ -35,7 +35,6 @@ repositories {
 dependencies {
     compile 'com.google.guava:guava:18.0'
     compile 'org.javassist:javassist:3.18.2-GA'
-    testCompile group: 'junit', name: 'junit', version: '4.11'
 }
 
 jar.manifest.mainAttributes(

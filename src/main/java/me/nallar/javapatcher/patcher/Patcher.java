@@ -1,5 +1,6 @@
 package me.nallar.javapatcher.patcher;
 
+import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
@@ -29,10 +30,10 @@ import java.util.*;
 public class Patcher {
 	private final ClassPool classPool;
 	private final Mappings mappings;
-	private static final boolean DEBUG_PATCHED_OUTPUT = System.getProperty("patcher.debug", "false").equals("true");
+	private static final String debugPatchedOutput = System.getProperty("patcher.debug", "");
 	private Object patchClassInstance;
-	private Map<String, PatchMethodDescriptor> patchMethods = new HashMap<String, PatchMethodDescriptor>();
-	private Map<String, PatchGroup> classToPatchGroup = new HashMap<String, PatchGroup>();
+	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<String, PatchMethodDescriptor>();
+	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<String, PatchGroup>();
 
 	public Patcher(InputStream config, Class<?> patchesClass, ClassPool classPool, Mappings mappings) {
 		for (Method method : patchesClass.getDeclaredMethods()) {
@@ -121,17 +122,17 @@ public class Patcher {
 		}
 
 		private void obfuscateAttributesAndTextContent(Element root) {
+			// TODO - reimplement environments?
+			/*
 			for (Element classElement : DomUtil.elementList(root.getChildNodes())) {
 				String env = classElement.getAttribute("env");
 				if (env != null && !env.isEmpty()) {
-					// TODO - reimplement environments?
-					/*
 					if (!env.equals(getEnv())) {
 						root.removeChild(classElement);
 					}
-					*/
 				}
 			}
+			*/
 			for (Element element : DomUtil.elementList(root.getChildNodes())) {
 				if (!DomUtil.elementList(element.getChildNodes()).isEmpty()) {
 					obfuscateAttributesAndTextContent(element);
@@ -158,9 +159,10 @@ public class Patcher {
 		}
 
 		private void saveByteCode(byte[] bytes, String name) {
-			if (DEBUG_PATCHED_OUTPUT) {
+			if (!debugPatchedOutput.isEmpty()) {
 				name = name.replace('.', '/') + ".class";
-				File file = new File("./TTpatched/" + name);
+				File file = new File(debugPatchedOutput + '/' + name);
+				//noinspection ResultOfMethodCallIgnored
 				file.getParentFile().mkdirs();
 				try {
 					Files.write(bytes, file);
@@ -223,7 +225,7 @@ public class Patcher {
 					continue;
 				}
 				try {
-					byte[] byteCode =  ctClass.toBytecode();
+					byte[] byteCode = ctClass.toBytecode();
 					patchedBytes.put(className, byteCode);
 					saveByteCode(byteCode, className);
 				} catch (Throwable t) {
@@ -279,7 +281,7 @@ public class Patcher {
 								int parameterIndex = Integer.valueOf(field.substring(1)) - 1;
 								if (parameterIndex >= parameterList.size()) {
 									if (!parameterList.isEmpty()) {
-										Log.severe("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + CollectionsUtil.join(parameterList));
+										Log.severe("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + Joiner.on(',').join(parameterList));
 									}
 									break;
 								}
@@ -379,7 +381,7 @@ public class Patcher {
 			Map<String, String> attributes = patchDescriptor.getAttributes();
 			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
 			attributesClean.remove("code");
-			Log.fine("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.joinMap(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
+			Log.fine("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
 			if (requiredAttributes != null && !attributes.keySet().containsAll(requiredAttributes)) {
 				Log.severe("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
 				return null;

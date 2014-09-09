@@ -739,11 +739,11 @@ public class Patches {
 	}
 
 	private void removeInitializers(CtBehavior ctBehavior, final CtField ctField) throws CannotCompileException, NotFoundException {
-		replaceInitializer(ctBehavior, CollectionsUtil.<String, String>map(
+		replaceInitializer(ctBehavior, CollectionsUtil.<String, String>listToMap(
 				"field", ctField.getName(),
 				"code", "{ $_ = null; }",
 				"silent", "true"));
-		replaceFieldUsage(ctBehavior, CollectionsUtil.<String, String>map(
+		replaceFieldUsage(ctBehavior, CollectionsUtil.<String, String>listToMap(
 				"field", ctField.getName(),
 				"writeCode", "{ }",
 				"readCode", "{ $_ = null; }",
@@ -1168,7 +1168,7 @@ public class Patches {
 			} catch (NotFoundException ignored) {
 			}
 			ctMethod.setName(ctMethod.getName() + "_sync" + i);
-			List<AttributeInfo> attributes = ctMethod.getMethodInfo().getAttributes();
+			@SuppressWarnings("unchecked") List<AttributeInfo> attributes = ctMethod.getMethodInfo().getAttributes();
 			Iterator<AttributeInfo> attributeInfoIterator = attributes.iterator();
 			while (attributeInfoIterator.hasNext()) {
 				AttributeInfo attributeInfo = attributeInfoIterator.next();
@@ -1199,7 +1199,7 @@ public class Patches {
 		} catch (NotFoundException ignored) {
 		}
 		ctMethod.setName(ctMethod.getName() + "_sync" + i);
-		List<AttributeInfo> annotations = ctMethod.getMethodInfo().getAttributes();
+		@SuppressWarnings("unchecked") List<AttributeInfo> annotations = ctMethod.getMethodInfo().getAttributes();
 		Iterator<AttributeInfo> attributeInfoIterator = annotations.iterator();
 		while (attributeInfoIterator.hasNext()) {
 			AttributeInfo attributeInfo = attributeInfoIterator.next();
