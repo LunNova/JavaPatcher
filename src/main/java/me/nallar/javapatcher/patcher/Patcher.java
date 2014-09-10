@@ -65,6 +65,10 @@ public class Patcher {
 		}
 	}
 
+	public boolean willTransform(String name) {
+		return getPatchGroup(name) != null;
+	}
+
 	public synchronized byte[] transform(String name, byte[] originalBytes) {
 		PatchGroup patchGroup = getPatchGroup(name);
 		if (patchGroup != null) {
