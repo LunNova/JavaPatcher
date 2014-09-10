@@ -5,6 +5,13 @@ A library which allows flexible patching of java bytecode using javassist and co
 Copyright &copy; 2014, nallar <rallan.pcl+gt@gmail.com>
 JavaPatcher is licensed under the MIT license.
 
+Including JavaPatcher in your project
+-----
+JavaPatcher is available from the maven repo http://repo.nallar.me/ under the group "me.nallar", artifact "javapatcher"
+and version "1.0".
+
+If you include JavaPatcher in your project, you must also bundle [Javassist](http://www.csg.ci.i.u-tokyo.ac.jp/~chiba/javassist/) version 3.17 or later.
+
 Download
 -----
 Download the latest builds from [Jenkins].
