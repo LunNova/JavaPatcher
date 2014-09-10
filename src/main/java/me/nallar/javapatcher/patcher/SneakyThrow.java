@@ -1,4 +1,4 @@
-package me.nallar.javapatcher.util;
+package me.nallar.javapatcher.patcher;
 
 /**
  * Usage:

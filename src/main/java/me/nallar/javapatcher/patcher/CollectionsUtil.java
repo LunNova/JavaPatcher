@@ -1,8 +1,8 @@
-package me.nallar.javapatcher.util;
+package me.nallar.javapatcher.patcher;
 
 import java.util.*;
 
-public enum CollectionsUtil {
+enum CollectionsUtil {
 	;
 
 	public static String mapToString(Map<?, ?> map) {

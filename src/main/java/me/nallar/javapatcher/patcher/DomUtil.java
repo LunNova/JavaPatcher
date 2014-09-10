@@ -1,6 +1,6 @@
-package me.nallar.javapatcher.util;
+package me.nallar.javapatcher.patcher;
 
-import me.nallar.javapatcher.Log;
+import me.nallar.javapatcher.PatcherLog;
 import org.w3c.dom.Attr;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -15,7 +15,7 @@ import javax.xml.parsers.ParserConfigurationException;
 import java.io.*;
 import java.util.*;
 
-public enum DomUtil {
+enum DomUtil {
 	;
 
 	public static List<Element> getElementsByTag(Element element, String tagName) {
@@ -62,7 +62,7 @@ public enum DomUtil {
 		} catch (ParserConfigurationException e) {
 			//This exception is thrown, and no shorthand way of getting a DocumentBuilder without it.
 			//Should not be thrown, as we do not do anything to the DocumentBuilderFactory.
-			Log.severe("Java was bad, this shouldn't happen. DocBuilder instantiation via default docBuilderFactory failed", e);
+			PatcherLog.severe("Java was bad, this shouldn't happen. DocBuilder instantiation via default docBuilderFactory failed", e);
 		} finally {
 			configInputStream.close();
 		}

@@ -3,7 +3,7 @@ package me.nallar.javapatcher;
 import java.util.logging.*;
 
 @SuppressWarnings("UnusedDeclaration")
-public enum Log {
+public enum PatcherLog {
 	;
 	public static final Logger LOGGER = Logger.getLogger("JavaPatcher");
 

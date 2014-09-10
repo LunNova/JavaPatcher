@@ -3,7 +3,7 @@ package me.nallar.javapatcher.mappings;
 import com.google.common.base.Splitter;
 import javassist.CtClass;
 import javassist.CtMethod;
-import me.nallar.javapatcher.Log;
+import me.nallar.javapatcher.PatcherLog;
 
 import java.lang.reflect.*;
 import java.util.*;
@@ -94,7 +94,7 @@ public class MethodDescription {
 			}
 		}
 		if (isExact()) {
-			Log.warning("Failed to find exact match for " + this.getMCPName() + ", trying to find similar methods.");
+			PatcherLog.warning("Failed to find exact match for " + this.getMCPName() + ", trying to find similar methods.");
 		}
 		if (possible != null) {
 			return possible;
@@ -144,7 +144,7 @@ public class MethodDescription {
 				methodString = methodString.replace('.', '/');
 				return new MethodDescription(clazz, methodName, methodString.substring(methodString.indexOf('(')));
 			} catch (Exception e) {
-				Log.severe("Failed to parse " + methodString, e);
+				PatcherLog.severe("Failed to parse " + methodString, e);
 			}
 		}
 		return new MethodDescription(clazz, methodString, "", "");
