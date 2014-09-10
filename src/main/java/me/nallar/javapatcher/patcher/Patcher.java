@@ -35,7 +35,7 @@ public class Patcher {
 	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<String, PatchMethodDescriptor>();
 	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<String, PatchGroup>();
 
-	public Patcher(InputStream config, Class<?> patchesClass, ClassPool classPool, Mappings mappings) {
+	public Patcher(Class<?> patchesClass, ClassPool classPool, Mappings mappings) {
 		for (Method method : patchesClass.getDeclaredMethods()) {
 			for (Annotation annotation : method.getDeclaredAnnotations()) {
 				if (annotation instanceof Patch) {
@@ -51,16 +51,28 @@ public class Patcher {
 		} catch (Exception e) {
 			Log.severe("Failed to instantiate patch class", e);
 		}
+	}
+
+	public void readPatchesFromFile(File file) {
 		try {
-			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(config));
+			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(new FileInputStream(file)));
 		} catch (Throwable t) {
 			throw SneakyThrow.throw_(t);
 		}
 	}
 
-	private void readPatchesFromXmlDocument(Document document) {
+	public void readPatchesFromInputStream(InputStream inputStream) {
+		try {
+			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(inputStream));
+		} catch (Throwable t) {
+			throw SneakyThrow.throw_(t);
+		}
+	}
+
+	public void readPatchesFromXmlDocument(Document document) {
 		List<Element> patchGroupElements = DomUtil.elementList(document.getDocumentElement().getChildNodes());
 		for (Element patchGroupElement : patchGroupElements) {
+			// TODO - rework this. Side-effect of object creation makes this look redundant when it isn't
 			new PatchGroup(patchGroupElement);
 		}
 	}
