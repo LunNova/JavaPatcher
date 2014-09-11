@@ -19,6 +19,7 @@ import me.nallar.javapatcher.mappings.Mappings;
 import me.nallar.javapatcher.mappings.MethodDescription;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
+import org.xml.sax.SAXException;
 
 import java.io.*;
 import java.lang.annotation.*;
@@ -84,16 +85,12 @@ public class Patcher {
 	}
 
 	/**
-	 * Convenience method which reads an XML document from the XML file and passes it to readPatchesFromXMLDocument
+	 * Convenience method which reads an XML document from the input stream and passes it to readPatchesFromXMLDocument
 	 *
-	 * @param file XML file to read from
+	 * @param inputStream input stream to read from
 	 */
-	public void readPatchesFromFile(File file) {
-		try {
-			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(new FileInputStream(file)));
-		} catch (Throwable t) {
-			throw SneakyThrow.throw_(t);
-		}
+	public void readPatchesFromXmlInputStream(InputStream inputStream) {
+		readPatchesFromXmlString(DomUtil.readInputStreamToString(inputStream));
 	}
 
 	/**
@@ -101,12 +98,12 @@ public class Patcher {
 	 *
 	 * @param inputStream input stream to read from
 	 */
-	public void readPatchesFromInputStream(InputStream inputStream) {
-		try {
-			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(inputStream));
-		} catch (Throwable t) {
-			throw SneakyThrow.throw_(t);
-		}
+	public void readPatchesFromJsonInputStream(InputStream inputStream) {
+		readPatchesFromJsonString(DomUtil.readInputStreamToString(inputStream));
+	}
+
+	public void readPatchesFromJsonString(String json) {
+		readPatchesFromXmlString(DomUtil.makePatchXmlFromJson(json));
 	}
 
 	/**
@@ -114,6 +111,16 @@ public class Patcher {
 	 *
 	 * @param document XML document
 	 */
+	public void readPatchesFromXmlString(String document) {
+		try {
+			readPatchesFromXmlDocument(DomUtil.readDocumentFromString(document));
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} catch (SAXException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
 	public void readPatchesFromXmlDocument(Document document) {
 		List<Element> patchGroupElements = DomUtil.elementList(document.getDocumentElement().getChildNodes());
 		for (Element patchGroupElement : patchGroupElements) {

@@ -32,9 +32,22 @@ repositories {
     mavenCentral()
 }
 
+configurations {
+    provided
+    compile.extendsFrom provided
+}
+
 dependencies {
-    compile 'com.google.guava:guava:18.0'
-    compile 'org.javassist:javassist:3.18.2-GA'
+    provided 'com.google.guava:guava:18.0'
+    provided 'org.javassist:javassist:3.18.2-GA'
+    compile 'org.json:json:20090211'
+}
+
+jar {
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    from((configurations.runtime - configurations.provided).filter{it.exists()}.collect { it.isDirectory() ? it : zipTree(it) }) {
+        exclude "META-INF/**"
+    }
 }
 
 jar.manifest.mainAttributes(

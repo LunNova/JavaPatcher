@@ -1,0 +1,14 @@
+{
+    "eventHooks": {
+        onDemand: true,
+        "net.minecraft.world.World": {
+            insertCodeBefore: {
+                target: "getBlock",
+                code: """{
+                    System.out.println("Test code!");
+                }"""
+            }
+        }
+    }
+}
+

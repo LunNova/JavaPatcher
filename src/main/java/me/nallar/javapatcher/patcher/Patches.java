@@ -138,6 +138,7 @@ public class Patches {
 
 	/**
 	 * Renames the target method to the given name
+	 *
 	 * @param name New name for the target method
 	 */
 	@Patch(
@@ -166,6 +167,7 @@ public class Patches {
 
 	/**
 	 * Adds a method to the target class from separate code, returnType, parameterTypes and name attributes
+	 *
 	 * @param ctClass
 	 * @param attributes
 	 * @throws NotFoundException
@@ -223,6 +225,7 @@ public class Patches {
 
 	/**
 	 * Removes the field `field` from the target class
+	 *
 	 * @param field Field name to remove
 	 */
 	@Patch(
@@ -234,6 +237,7 @@ public class Patches {
 
 	/**
 	 * Removes the field `field` from the target class and removes its initializers
+	 *
 	 * @param field Field name to remove
 	 */
 	@Patch(
@@ -307,10 +311,11 @@ public class Patches {
 
 	/**
 	 * Replaces initialisers of the field `field` in `fieldClass`
-	 * @param field Field to replace initializers
-	 * @param fieldClass (optional) Type of field
+	 *
+	 * @param field                Field to replace initializers
+	 * @param fieldClass           (optional) Type of field
 	 * @param classContainingField (optional) Class containing field
-	 * @param code (optional) Code to replace the initializer with. $_ in code = target field. Defaults to `$_ = new fieldClass();`
+	 * @param code                 (optional) Code to replace the initializer with. $_ in code = target field. Defaults to `$_ = new fieldClass();`
 	 */
 	@Patch(
 			requiredAttributes = "field",
@@ -431,9 +436,10 @@ public class Patches {
 	/**
 	 * Replaces a `new oldClass()` expression in the target class or methods with `new newClass();
 	 * oldClass and one of newClass or code must be specified.
+	 *
 	 * @param oldClass Type of new expression to replace
 	 * @param newClass (optional) New type to construct
-	 * @param code (optional) $_ = new newClass();
+	 * @param code     (optional) $_ = new newClass();
 	 */
 	@Patch(
 			requiredAttributes = "oldClass",
@@ -593,10 +599,11 @@ public class Patches {
 
 	/**
 	 * Replaces accesses of the specified field of type fieldClass in the target method
-	 * @param field Field to replace accesses of
+	 *
+	 * @param field      Field to replace accesses of
 	 * @param fieldClass class of the field
-	 * @param readCode (optional) Code to replace field reads with. For example, `$_ = 5;` to make the field reads always get 5.
-	 * @param writeCode (optional) Code to replace field writes with. For example `this.setHasStatus($_);` to call a setter method
+	 * @param readCode   (optional) Code to replace field reads with. For example, `$_ = 5;` to make the field reads always get 5.
+	 * @param writeCode  (optional) Code to replace field writes with. For example `this.setHasStatus($_);` to call a setter method
 	 * @throws CannotCompileException
 	 */
 	@Patch(
@@ -719,8 +726,9 @@ public class Patches {
 
 	/**
 	 * Removes all code prior to the `index` occurence of `opcode` in the target method
+	 *
 	 * @param opcode opcode to remove until
-	 * @param index (optional) index of the opcode to remove until. -1 = every occurence, -2 = first occurence. Defaults to 0th index.
+	 * @param index  (optional) index of the opcode to remove until. -1 = every occurence, -2 = first occurence. Defaults to 0th index.
 	 * @throws BadBytecode
 	 */
 	@Patch(
@@ -777,6 +785,7 @@ public class Patches {
 
 	/**
 	 * Extends the target class by adding all methods, fields and interfaces from the specified class
+	 *
 	 * @param class Class to get methods/fields/interfaces to add
 	 */
 	@Patch(
@@ -900,6 +909,7 @@ public class Patches {
 
 	/**
 	 * Removes initializers of the given field in the target class
+	 *
 	 * @param field field in the target class to remove initializers of
 	 */
 	@Patch(
@@ -931,9 +941,10 @@ public class Patches {
 
 	/**
 	 * Replaces accesses of a field in the target class with accesses of a ThreadLocal.
-	 * @param field Field to replace accesses of
+	 *
+	 * @param field            Field to replace accesses of
 	 * @param threadLocalField Field containing the threadlocal. Can be a fully qualified static field,
-	 *                            or a field in the target class
+	 *                         or a field in the target class
 	 */
 	@Patch(
 			requiredAttributes = "field,threadLocalField,type"
@@ -960,6 +971,7 @@ public class Patches {
 
 	/**
 	 * Sets the target class, or field in target class, or given method to have public access
+	 *
 	 * @param field (optional) Field in target class to make public
 	 */
 	@Patch(
@@ -995,6 +1007,7 @@ public class Patches {
 
 	/**
 	 * Adds a static initializer block to the target class
+	 *
 	 * @param code Code in static initializer block
 	 */
 	@Patch(
@@ -1006,10 +1019,11 @@ public class Patches {
 
 	/**
 	 * Adds a new initializer for the given field in the target class
-	 * @param field Field to add an initializer for
+	 *
+	 * @param field      Field to add an initializer for
 	 * @param fieldClass type of the field
-	 * @param code (optional) Expression to initialise the field with, eg `new java.util.ArrayList()`. Defaults to `new fieldClass();`
-	 * @param arraySize (optional) Size of the array. If set, type is an array of fieldClass.
+	 * @param code       (optional) Expression to initialise the field with, eg `new java.util.ArrayList()`. Defaults to `new fieldClass();`
+	 * @param arraySize  (optional) Size of the array. If set, type is an array of fieldClass.
 	 */
 	@Patch(
 			requiredAttributes = "field"
@@ -1040,9 +1054,10 @@ public class Patches {
 
 	/**
 	 * Adds a new field of type fieldClass to the target class, initialised with the given code if set
-	 * @param field Field name to add
+	 *
+	 * @param field      Field name to add
 	 * @param fieldClass class of the field
-	 * @param code (optional) Initialiser, defaults to `new fieldClass();`
+	 * @param code       (optional) Initialiser, defaults to `new fieldClass();`
 	 */
 	@Patch(
 			requiredAttributes = "field,class"
@@ -1076,12 +1091,13 @@ public class Patches {
 
 	/**
 	 * Inserts a block of java code at the start of the given method
+	 *
 	 * @param code Code to insert. Eg:
-	 *                {
-	 *                	if ($1 == 0) { // $1 = parameter 1.
-	 *             			throw new RuntimeException("First parameter can not be 0");
-	 *                	}
-	 *                }
+	 *             {
+	 *             if ($1 == 0) { // $1 = parameter 1.
+	 *             throw new RuntimeException("First parameter can not be 0");
+	 *             }
+	 *             }
 	 */
 	@Patch(
 			requiredAttributes = "code"
@@ -1097,10 +1113,11 @@ public class Patches {
 
 	/**
 	 * Inserts a block of java code at the end of the given method
+	 *
 	 * @param code Code to insert. Eg:
-	 *                {
-	 *                	System.out.println("Parameter 2 is set to " + $0);
-	 *                }
+	 *             {
+	 *             System.out.println("Parameter 2 is set to " + $0);
+	 *             }
 	 */
 	@Patch(
 			requiredAttributes = "code"
@@ -1117,6 +1134,7 @@ public class Patches {
 
 	/**
 	 * Locks and unlocks the lock in the given field at the start and end of the given method
+	 *
 	 * @param Field containing Lock
 	 */
 	@Patch(
@@ -1130,9 +1148,10 @@ public class Patches {
 
 	/**
 	 * In the target method, wraps calls to the method `method` with lock/unlock calls
+	 *
 	 * @param method name of method to lock calls to
-	 * @param field field containing Lock
-	 * @param index (optional) Index of call to lock. Defaults to all.
+	 * @param field  field containing Lock
+	 * @param index  (optional) Index of call to lock. Defaults to all.
 	 * @throws CannotCompileException
 	 */
 	@Patch(
@@ -1179,9 +1198,10 @@ public class Patches {
 
 	/**
 	 * In the target method, wraps calls to the method `method` with a synchronized block
+	 *
 	 * @param method name of method to lock calls to
-	 * @param field field containing lock object
-	 * @param index (optional) Index of call to lock. Defaults to all.
+	 * @param field  field containing lock object
+	 * @param index  (optional) Index of call to lock. Defaults to all.
 	 * @throws CannotCompileException
 	 */
 	@Patch(
@@ -1229,7 +1249,8 @@ public class Patches {
 
 	/**
 	 * Makes the target method, field, or all fields in the target class synchronized
-	 * @param field Field to synchronize on
+	 *
+	 * @param field  Field to synchronize on
 	 * @param static (optional) defaults to false. Whether to synchronize static fields, or non-static fields when target is a class
 	 * @throws CannotCompileException
 	 */
@@ -1301,8 +1322,9 @@ public class Patches {
 
 	/**
 	 * Catches and discards exceptions in the target method.
+	 *
 	 * @param exceptionClass class of exception to catch. Defaults to `Throwable`
-	 * @param code Code in the catch block. Defaults to `return;`
+	 * @param code           Code in the catch block. Defaults to `return;`
 	 */
 	@Patch
 	public void catchAndIgnoreExceptions(CtMethod ctMethod, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
