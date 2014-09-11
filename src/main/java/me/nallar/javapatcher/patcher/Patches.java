@@ -44,7 +44,7 @@ import java.util.*;
 /**
  *
  */
-@SuppressWarnings({"MethodMayBeStatic", "ObjectAllocationInLoop", "AnonymousInnerClass"})
+@SuppressWarnings({"MethodMayBeStatic", "ObjectAllocationInLoop", "AnonymousInnerClass", "JavadocReference"})
 public class Patches {
 	private final ClassPool classPool;
 	private final Mappings mappings;
@@ -130,11 +130,21 @@ public class Patches {
 
 	/**
 	 * Removes the targeted method
-	 * NOTE: Implementation may rename the removed method to an unused name instead.
 	 */
 	@Patch
-	public void removeMethod(CtMethod ctMethod) {
-		ctMethod.setName(ctMethod.getName() + "_removed_do_not_use");
+	public void removeMethod(CtMethod ctMethod) throws NotFoundException {
+		ctMethod.getDeclaringClass().removeMethod(ctMethod);
+	}
+
+	/**
+	 * Renames the target method to the given name
+	 * @param name New name for the target method
+	 */
+	@Patch(
+			requiredAttributes = "name"
+	)
+	public void renameMethod(CtMethod ctMethod, Map<String, String> attributes) {
+		ctMethod.setName(attributes.get("name"));
 	}
 
 	/**
@@ -212,12 +222,50 @@ public class Patches {
 	}
 
 	/**
+	 * Removes the field `field` from the target class
+	 * @param field Field name to remove
+	 */
+	@Patch(
+			requiredAttributes = "field"
+	)
+	public void removeField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException {
+		ctClass.removeField(ctClass.getDeclaredField(attributes.get("field")));
+	}
+
+	/**
+	 * Removes the field `field` from the target class and removes its initializers
+	 * @param field Field name to remove
+	 */
+	@Patch(
+			requiredAttributes = "field"
+	)
+	public void removeFieldAndInitializers(CtClass ctClass, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
+		CtField ctField;
+		try {
+			ctField = ctClass.getDeclaredField(attributes.get("field"));
+		} catch (NotFoundException e) {
+			if (!attributes.containsKey("silent")) {
+				PatcherLog.severe("Couldn't find field " + attributes.get("field"));
+			}
+			return;
+		}
+		for (CtBehavior ctBehavior : ctClass.getDeclaredConstructors()) {
+			removeInitializers(ctBehavior, ctField);
+		}
+		CtBehavior ctBehavior = ctClass.getClassInitializer();
+		if (ctBehavior != null) {
+			removeInitializers(ctBehavior, ctField);
+		}
+		ctClass.removeField(ctField);
+	}
+
+	/**
 	 * In the target class, changes the field `field`'s type to the given type
 	 */
 	@Patch(
 			requiredAttributes = "type,field"
 	)
-	public void changeFieldType(final CtClass ctClass, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
+	public void changefieldClass(final CtClass ctClass, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
 		final String field = attributes.get("field");
 		CtField oldField = ctClass.getDeclaredField(field);
 		oldField.setName(field + "_old");
@@ -260,9 +308,9 @@ public class Patches {
 	/**
 	 * Replaces initialisers of the field `field` in `fieldClass`
 	 * @param field Field to replace initializers
-	 * @param fieldType (optional) Type of field
+	 * @param fieldClass (optional) Type of field
 	 * @param classContainingField (optional) Class containing field
-	 * @param code (optional) Code to replace the initializer with. $_ in code = target field. Defaults to `$_ = new fieldType();`
+	 * @param code (optional) Code to replace the initializer with. $_ in code = target field. Defaults to `$_ = new fieldClass();`
 	 */
 	@Patch(
 			requiredAttributes = "field",
@@ -286,7 +334,7 @@ public class Patches {
 		}
 		final CtField ctField = ctClass.getDeclaredField(field);
 		String code = attributes.get("code");
-		String clazz = attributes.get("fieldType");
+		String clazz = attributes.get("fieldClass");
 		if (code == null && clazz == null) {
 			throw new NullPointerException("Must give code or class");
 		}
@@ -493,7 +541,7 @@ public class Patches {
 			CtClass ctClass = (CtClass) o;
 			ctClass.setModifiers(Modifier.setPublic(ctClass.getModifiers()));
 			for (CtConstructor ctConstructor : ctClass.getDeclaredConstructors()) {
-				public_(ctConstructor, Collections.<String, String>emptyMap());
+				setPublic(ctConstructor, Collections.<String, String>emptyMap());
 			}
 		} else {
 			CtBehavior ctBehavior = (CtBehavior) o;
@@ -669,10 +717,16 @@ public class Patches {
 		}
 	}
 
+	/**
+	 * Removes all code prior to the `index` occurence of `opcode` in the target method
+	 * @param opcode opcode to remove until
+	 * @param index (optional) index of the opcode to remove until. -1 = every occurence, -2 = first occurence. Defaults to 0th index.
+	 * @throws BadBytecode
+	 */
 	@Patch(
 			requiredAttributes = "opcode"
 	)
-	public void removeUntilOpcode(CtBehavior ctBehavior, Map<String, String> attributes) throws BadBytecode {
+	public void removeCodeUntilOpcode(CtBehavior ctBehavior, Map<String, String> attributes) throws BadBytecode {
 		int opcode = Arrays.asList(Mnemonic.OPCODE).indexOf(attributes.get("opcode").toLowerCase());
 		String removeIndexString = attributes.get("index");
 		int removeIndex = removeIndexString == null ? -1 : Integer.parseInt(removeIndexString);
@@ -687,7 +741,7 @@ public class Patches {
 			while (iterator.hasNext()) {
 				int index = iterator.next();
 				int op = iterator.byteAt(index);
-				if (op == opcode && (removeIndex < 0 || removeIndex == ++currentIndex)) {
+				if (op == opcode && (removeIndex < 0 || removeIndex == currentIndex++)) {
 					for (int i = 0; i <= index; i++) {
 						iterator.writeByte(Opcode.NOP, i);
 					}
@@ -721,11 +775,15 @@ public class Patches {
 		}
 	}
 
+	/**
+	 * Extends the target class by adding all methods, fields and interfaces from the specified class
+	 * @param class Class to get methods/fields/interfaces to add
+	 */
 	@Patch(
-			requiredAttributes = "fromClass"
+			requiredAttributes = "class"
 	)
-	public void addAll(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, BadBytecode {
-		String fromClass = attributes.get("fromClass");
+	public void extendFromClass(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, BadBytecode {
+		String fromClass = attributes.get("class");
 		CtClass from = classPool.get(fromClass);
 		transformClassStaticMethods(from, ctClass.getName());
 		ClassMap classMap = new ClassMap();
@@ -836,6 +894,14 @@ public class Patches {
 		}
 	}
 
+	private void insertSuper(CtBehavior ctBehavior) throws CannotCompileException {
+		ctBehavior.insertBefore("super." + ctBehavior.getName() + "($$);");
+	}
+
+	/**
+	 * Removes initializers of the given field in the target class
+	 * @param field field in the target class to remove initializers of
+	 */
 	@Patch(
 			requiredAttributes = "field",
 			emptyConstructor = false
@@ -863,10 +929,16 @@ public class Patches {
 				"silent", "true"));
 	}
 
+	/**
+	 * Replaces accesses of a field in the target class with accesses of a ThreadLocal.
+	 * @param field Field to replace accesses of
+	 * @param threadLocalField Field containing the threadlocal. Can be a fully qualified static field,
+	 *                            or a field in the target class
+	 */
 	@Patch(
 			requiredAttributes = "field,threadLocalField,type"
 	)
-	public void threadLocal(CtClass ctClass, Map<String, String> attributes) throws CannotCompileException {
+	public void replaceFieldWithThreadLocal(CtClass ctClass, Map<String, String> attributes) throws CannotCompileException {
 		final String field = attributes.get("field");
 		final String threadLocalField = attributes.get("threadLocalField");
 		final String type = attributes.get("type");
@@ -886,50 +958,14 @@ public class Patches {
 		});
 	}
 
+	/**
+	 * Sets the target class, or field in target class, or given method to have public access
+	 * @param field (optional) Field in target class to make public
+	 */
 	@Patch(
-			requiredAttributes = "field,threadLocalField"
-	)
-	public void threadLocalBoolean(CtClass ctClass, Map<String, String> attributes) throws CannotCompileException {
-		final String field = attributes.get("field");
-		final String threadLocalField = attributes.get("threadLocalField");
-		final IntHolder done = new IntHolder();
-		for (CtConstructor ctConstructor : ctClass.getDeclaredConstructors()) {
-			ctConstructor.instrument(new ExprEditor() {
-				@Override
-				public void edit(FieldAccess e) throws CannotCompileException {
-					if (e.getFieldName().equals(field)) {
-						if (e.isWriter()) {
-							e.replace("{ }");
-							done.value++;
-						}
-					}
-				}
-			});
-		}
-		ctClass.instrument(new ExprEditor() {
-			@Override
-			public void edit(FieldAccess e) throws CannotCompileException {
-				if (e.getFieldName().equals(field)) {
-					if (e.isReader()) {
-						e.replace("{ $_ = ((Boolean) " + threadLocalField + ".get()).booleanValue(); }");
-						done.value++;
-					} else if (e.isWriter()) {
-						e.replace("{ " + threadLocalField + ".set(Boolean.valueOf($1)); }");
-						done.value++;
-					}
-				}
-			}
-		});
-		if (done.value == 0) {
-			PatcherLog.warning("Didn't find any uses of " + field + " to replace with " + threadLocalField);
-		}
-	}
-
-	@Patch(
-			name = "public",
 			emptyConstructor = false
 	)
-	public void public_(Object o, Map<String, String> attributes) throws NotFoundException {
+	public void setPublic(Object o, Map<String, String> attributes) throws NotFoundException {
 		String field = attributes.get("field");
 		if (field != null) {
 			CtClass ctClass = (CtClass) o;
@@ -946,7 +982,7 @@ public class Patches {
 				Collections.addAll(toPublic, ctClass.getDeclaredConstructors());
 			}
 			for (Object o_ : toPublic) {
-				public_(o_, Collections.<String, String>emptyMap());
+				setPublic(o_, Collections.<String, String>emptyMap());
 			}
 		} else if (o instanceof CtField) {
 			CtField ctField = (CtField) o;
@@ -957,6 +993,10 @@ public class Patches {
 		}
 	}
 
+	/**
+	 * Adds a static initializer block to the target class
+	 * @param code Code in static initializer block
+	 */
 	@Patch(
 			requiredAttributes = "code"
 	)
@@ -964,12 +1004,19 @@ public class Patches {
 		ctClass.makeClassInitializer().insertAfter(attributes.get("code"));
 	}
 
+	/**
+	 * Adds a new initializer for the given field in the target class
+	 * @param field Field to add an initializer for
+	 * @param fieldClass type of the field
+	 * @param code (optional) Expression to initialise the field with, eg `new java.util.ArrayList()`. Defaults to `new fieldClass();`
+	 * @param arraySize (optional) Size of the array. If set, type is an array of fieldClass.
+	 */
 	@Patch(
 			requiredAttributes = "field"
 	)
-	public void newInitializer(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
+	public void addInitializer(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
 		String field = attributes.get("field");
-		String clazz = attributes.get("class");
+		String clazz = attributes.get("fieldClass");
 		String initialise = attributes.get("code");
 		String arraySize = attributes.get("arraySize");
 		initialise = "{ " + field + " = " + (initialise == null ? ("new " + clazz + (arraySize == null ? "()" : '[' + arraySize + ']')) : initialise) + "; }";
@@ -991,35 +1038,18 @@ public class Patches {
 		}
 	}
 
-	@Patch(
-			requiredAttributes = "field"
-	)
-	public void replaceField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
-		String field = attributes.get("field");
-		String clazz = attributes.get("class");
-		String type = attributes.get("type");
-		if (type == null) {
-			type = clazz;
-		}
-		String initialise = attributes.get("code");
-		String arraySize = attributes.get("arraySize");
-		initialise = "{ " + field + " = " + (initialise == null ? ("new " + clazz + (arraySize == null ? "()" : '[' + arraySize + ']')) : initialise) + "; }";
-		CtField oldField = ctClass.getDeclaredField(field);
-		oldField.setName(oldField.getName() + "_rem");
-		CtField newField = new CtField(classPool.get(type), field, ctClass);
-		newField.setModifiers(oldField.getModifiers());
-		ctClass.addField(newField);
-		for (CtConstructor ctConstructor : ctClass.getConstructors()) {
-			ctConstructor.insertAfter(initialise);
-		}
-	}
-
+	/**
+	 * Adds a new field of type fieldClass to the target class, initialised with the given code if set
+	 * @param field Field name to add
+	 * @param fieldClass class of the field
+	 * @param code (optional) Initialiser, defaults to `new fieldClass();`
+	 */
 	@Patch(
 			requiredAttributes = "field,class"
 	)
-	public void newField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
+	public void addField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
 		String field = attributes.get("field");
-		String clazz = attributes.get("class");
+		String clazz = attributes.get("fieldClass");
 		String initialise = attributes.get("code");
 		if (initialise == null) {
 			initialise = "new " + clazz + "();";
@@ -1044,10 +1074,19 @@ public class Patches {
 		}
 	}
 
+	/**
+	 * Inserts a block of java code at the start of the given method
+	 * @param code Code to insert. Eg:
+	 *                {
+	 *                	if ($1 == 0) { // $1 = parameter 1.
+	 *             			throw new RuntimeException("First parameter can not be 0");
+	 *                	}
+	 *                }
+	 */
 	@Patch(
 			requiredAttributes = "code"
 	)
-	public void insertBefore(CtBehavior ctBehavior, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
+	public void insertCodeBefore(CtBehavior ctBehavior, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
 		String field = attributes.get("field");
 		String code = attributes.get("code");
 		if (field != null) {
@@ -1056,10 +1095,17 @@ public class Patches {
 		ctBehavior.insertBefore(code);
 	}
 
+	/**
+	 * Inserts a block of java code at the end of the given method
+	 * @param code Code to insert. Eg:
+	 *                {
+	 *                	System.out.println("Parameter 2 is set to " + $0);
+	 *                }
+	 */
 	@Patch(
 			requiredAttributes = "code"
 	)
-	public void insertAfter(CtBehavior ctBehavior, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
+	public void insertCodeAfter(CtBehavior ctBehavior, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
 		String field = attributes.get("field");
 		String code = attributes.get("code");
 		if (field != null) {
@@ -1068,11 +1114,11 @@ public class Patches {
 		ctBehavior.insertAfter(code, attributes.containsKey("finally"));
 	}
 
-	@Patch
-	public void insertSuper(CtBehavior ctBehavior) throws CannotCompileException {
-		ctBehavior.insertBefore("super." + ctBehavior.getName() + "($$);");
-	}
 
+	/**
+	 * Locks and unlocks the lock in the given field at the start and end of the given method
+	 * @param Field containing Lock
+	 */
 	@Patch(
 			requiredAttributes = "field"
 	)
@@ -1082,6 +1128,13 @@ public class Patches {
 		ctMethod.insertAfter("this." + field + ".unlock();", true);
 	}
 
+	/**
+	 * In the target method, wraps calls to the method `method` with lock/unlock calls
+	 * @param method name of method to lock calls to
+	 * @param field field containing Lock
+	 * @param index (optional) Index of call to lock. Defaults to all.
+	 * @throws CannotCompileException
+	 */
 	@Patch(
 			requiredAttributes = "field"
 	)
@@ -1124,48 +1177,13 @@ public class Patches {
 		}
 	}
 
-	@Patch(
-			requiredAttributes = "name,interface"
-	)
-	public void renameInterfaceMethod(CtMethod ctMethod, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
-		CtClass currentClass = ctMethod.getDeclaringClass().getSuperclass();
-		final List<String> superClassNames = new ArrayList<String>();
-		boolean contains = false;
-		do {
-			if (!contains) {
-				for (CtClass ctClass : currentClass.getInterfaces()) {
-					if (ctClass.getName().equals(attributes.get("interface"))) {
-						contains = true;
-					}
-				}
-			}
-			currentClass = currentClass.getSuperclass();
-			superClassNames.add(currentClass.getName());
-		} while (currentClass != classPool.get("java.lang.Object"));
-		final String newName = attributes.get("name");
-		if (!contains) {
-			ctMethod.setName(newName);
-			return;
-		}
-		final String methodName = ctMethod.getName();
-		ctMethod.instrument(new ExprEditor() {
-			@Override
-			public void edit(MethodCall methodCall) throws CannotCompileException {
-				if (methodName.equals(methodCall.getMethodName()) && superClassNames.contains(methodCall.getClassName())) {
-					methodCall.replace("$_ = super." + newName + "($$);");
-				}
-			}
-		});
-		ctMethod.setName(newName);
-	}
-
-	@Patch(
-			requiredAttributes = "name"
-	)
-	public void rename(CtMethod ctMethod, Map<String, String> attributes) {
-		ctMethod.setName(attributes.get("name"));
-	}
-
+	/**
+	 * In the target method, wraps calls to the method `method` with a synchronized block
+	 * @param method name of method to lock calls to
+	 * @param field field containing lock object
+	 * @param index (optional) Index of call to lock. Defaults to all.
+	 * @throws CannotCompileException
+	 */
 	@Patch(
 			requiredAttributes = "field"
 	)
@@ -1209,15 +1227,16 @@ public class Patches {
 		}
 	}
 
-	@Patch
-	public void unsynchronize(CtBehavior ctBehavior) {
-		ctBehavior.setModifiers(ctBehavior.getModifiers() & ~Modifier.SYNCHRONIZED);
-	}
-
+	/**
+	 * Makes the target method, field, or all fields in the target class synchronized
+	 * @param field Field to synchronize on
+	 * @param static (optional) defaults to false. Whether to synchronize static fields, or non-static fields when target is a class
+	 * @throws CannotCompileException
+	 */
 	@Patch(
 			emptyConstructor = false
 	)
-	public void synchronize(Object o, Map<String, String> attributes) throws CannotCompileException {
+	public void setSynchronized(Object o, Map<String, String> attributes) throws CannotCompileException {
 		//noinspection StatementWithEmptyBody
 		if (o instanceof CtConstructor) {
 		} else if (o instanceof CtMethod) {
@@ -1238,6 +1257,11 @@ public class Patches {
 				PatcherLog.fine("Synchronized " + synchronized_ + " methods in " + ((CtClass) o).getName());
 			}
 		}
+	}
+
+	@Patch
+	public void unsetSynchronized(CtBehavior ctBehavior) {
+		ctBehavior.setModifiers(ctBehavior.getModifiers() & ~Modifier.SYNCHRONIZED);
 	}
 
 	private void synchronize(CtMethod ctMethod, String field) throws CannotCompileException {
@@ -1275,42 +1299,18 @@ public class Patches {
 		}
 	}
 
-	@Patch(
-			requiredAttributes = "field"
-	)
-	public void synchronizeNotNull(CtMethod ctMethod, Map<String, String> attributes) throws CannotCompileException {
-		String field = attributes.get("field");
-		CtClass ctClass = ctMethod.getDeclaringClass();
-		CtMethod replacement = CtNewMethod.copy(ctMethod, ctClass, null);
-		int i = 0;
-		try {
-			//noinspection InfiniteLoopStatement
-			for (; true; i++) {
-				ctClass.getDeclaredMethod(ctMethod.getName() + "_sync" + i);
-			}
-		} catch (NotFoundException ignored) {
-		}
-		ctMethod.setName(ctMethod.getName() + "_sync" + i);
-		@SuppressWarnings("unchecked") List<AttributeInfo> annotations = ctMethod.getMethodInfo().getAttributes();
-		Iterator<AttributeInfo> attributeInfoIterator = annotations.iterator();
-		while (attributeInfoIterator.hasNext()) {
-			AttributeInfo attributeInfo = attributeInfoIterator.next();
-			if (attributeInfo instanceof AnnotationsAttribute) {
-				attributeInfoIterator.remove();
-				replacement.getMethodInfo().addAttribute(attributeInfo);
-			}
-		}
-		replacement.setBody("Object sync = + " + field + "; if (sync == null) { return " + ctMethod.getName() + "($$); } else { synchronized(sync) { return " + ctMethod.getName() + "($$); }");
-		ctClass.addMethod(replacement);
-	}
-
+	/**
+	 * Catches and discards exceptions in the target method.
+	 * @param exceptionClass class of exception to catch. Defaults to `Throwable`
+	 * @param code Code in the catch block. Defaults to `return;`
+	 */
 	@Patch
-	public void ignoreExceptions(CtMethod ctMethod, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
+	public void catchAndIgnoreExceptions(CtMethod ctMethod, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
 		String returnCode = attributes.get("code");
 		if (returnCode == null) {
 			returnCode = "return;";
 		}
-		String exceptionType = attributes.get("type");
+		String exceptionType = attributes.get("exceptionClass");
 		if (exceptionType == null) {
 			exceptionType = "java.lang.Throwable";
 		}
@@ -1318,6 +1318,9 @@ public class Patches {
 		ctMethod.addCatch("{ " + returnCode + '}', classPool.get(exceptionType));
 	}
 
+	/**
+	 * Convert .lock/.unlock calls in the given method to monitor lock/unlock opcodes
+	 */
 	@Patch
 	public void lockToSynchronized(CtBehavior ctBehavior, Map<String, String> attributes) throws BadBytecode {
 		CtClass ctClass = ctBehavior.getDeclaringClass();
@@ -1371,41 +1374,6 @@ public class Patches {
 		}
 		methodInfo.rebuildStackMapIf6(ctClass.getClassPool(), ctClass.getClassFile2());
 		PatcherLog.fine("Replaced " + done + " lock/unlock calls.");
-	}
-
-	@Patch(
-			requiredAttributes = "field"
-	)
-	public void removeField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException {
-		ctClass.removeField(ctClass.getDeclaredField(attributes.get("field")));
-	}
-
-	@Patch(
-			requiredAttributes = "field"
-	)
-	public void removeFieldAndInitializers(CtClass ctClass, Map<String, String> attributes) throws CannotCompileException, NotFoundException {
-		CtField ctField;
-		try {
-			ctField = ctClass.getDeclaredField(attributes.get("field"));
-		} catch (NotFoundException e) {
-			if (!attributes.containsKey("silent")) {
-				PatcherLog.severe("Couldn't find field " + attributes.get("field"));
-			}
-			return;
-		}
-		for (CtBehavior ctBehavior : ctClass.getDeclaredConstructors()) {
-			removeInitializers(ctBehavior, ctField);
-		}
-		CtBehavior ctBehavior = ctClass.getClassInitializer();
-		if (ctBehavior != null) {
-			removeInitializers(ctBehavior, ctField);
-		}
-		ctClass.removeField(ctField);
-	}
-
-	@Patch
-	public void removeMethod(CtMethod ctMethod, Map<String, String> attributes) throws NotFoundException {
-		ctMethod.getDeclaringClass().removeMethod(ctMethod);
 	}
 
 	private static class ExceptionsArentForControlFlow extends RuntimeException {

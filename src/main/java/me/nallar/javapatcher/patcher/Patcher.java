@@ -68,7 +68,9 @@ public class Patcher {
 			for (Annotation annotation : method.getDeclaredAnnotations()) {
 				if (annotation instanceof Patch) {
 					PatchMethodDescriptor patchMethodDescriptor = new PatchMethodDescriptor(method, (Patch) annotation);
-					patchMethods.put(patchMethodDescriptor.name, patchMethodDescriptor);
+					if (patchMethods.put(patchMethodDescriptor.name, patchMethodDescriptor) != null) {
+						PatcherLog.warning("Duplicate @Patch method with name " + patchMethodDescriptor.name);
+					}
 				}
 			}
 		}
