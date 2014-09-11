@@ -331,7 +331,7 @@ public class Patcher {
 			classPool = Patcher.this.classPool;
 			mappings = Patcher.this.mappings;
 			obfuscateAttributesAndTextContent(element);
-			onDemand = attributes.containsKey("onDemand");
+			onDemand = !attributes.containsKey("onDemand") || attributes.get("onDemand").toLowerCase().equals("true");
 			patches = onDemand ? new HashMap<String, ClassPatchDescriptor>() : null;
 
 			for (Element classElement : DomUtil.elementList(element.getChildNodes())) {
