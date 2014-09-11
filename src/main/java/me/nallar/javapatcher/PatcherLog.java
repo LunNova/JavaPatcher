@@ -2,6 +2,9 @@ package me.nallar.javapatcher;
 
 import java.util.logging.*;
 
+/**
+ * For internal use only, used to Log patcher errors/warnings/info.
+ */
 @SuppressWarnings("UnusedDeclaration")
 public enum PatcherLog {
 	;

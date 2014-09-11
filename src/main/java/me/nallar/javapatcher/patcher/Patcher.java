@@ -13,6 +13,7 @@ import javassist.CtMethod;
 import javassist.NotFoundException;
 import me.nallar.javapatcher.PatcherLog;
 import me.nallar.javapatcher.mappings.ClassDescription;
+import me.nallar.javapatcher.mappings.DefaultMappings;
 import me.nallar.javapatcher.mappings.FieldDescription;
 import me.nallar.javapatcher.mappings.Mappings;
 import me.nallar.javapatcher.mappings.MethodDescription;
@@ -24,15 +25,45 @@ import java.lang.annotation.*;
 import java.lang.reflect.*;
 import java.util.*;
 
+/**
+ * Patcher which uses javassist, a config file and a patcher class to patch arbitrary classes.
+ */
 public class Patcher {
+	private static final String debugPatchedOutput = System.getProperty("patcher.debug", "");
+	private static final Splitter idSplitter = Splitter.on("  ").trimResults().omitEmptyStrings();
 	private final ClassPool classPool;
 	private final Mappings mappings;
-	private static final String debugPatchedOutput = System.getProperty("patcher.debug", "");
-	private Object patchClassInstance;
 	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<String, PatchMethodDescriptor>();
 	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<String, PatchGroup>();
+	private Object patchClassInstance;
 
-	public Patcher(Class<?> patchesClass, ClassPool classPool, Mappings mappings) {
+	/**
+	 * Creates a patcher instance
+	 *
+	 * @param classPool Javassist classpool set up with correct classpath containing needed classes
+	 */
+	public Patcher(ClassPool classPool) {
+		this(classPool, Patches.class);
+	}
+
+	/**
+	 * Creates a patcher instance
+	 *
+	 * @param classPool    Javassist classpool set up with correct classpath containing needed classes
+	 * @param patchesClass Class to instantiate containing @Patch annotated methods
+	 */
+	public Patcher(ClassPool classPool, Class<?> patchesClass) {
+		this(classPool, patchesClass, new DefaultMappings());
+	}
+
+	/**
+	 * Creates a patcher instance
+	 *
+	 * @param classPool    Javassist classpool set up with correct classpath containing needed classes
+	 * @param patchesClass Class to instantiate containing @Patch annotated methods
+	 * @param mappings     Mappings instance
+	 */
+	public Patcher(ClassPool classPool, Class<?> patchesClass, Mappings mappings) {
 		for (Method method : patchesClass.getDeclaredMethods()) {
 			for (Annotation annotation : method.getDeclaredAnnotations()) {
 				if (annotation instanceof Patch) {
@@ -50,6 +81,11 @@ public class Patcher {
 		}
 	}
 
+	/**
+	 * Convenience method which reads an XML document from the XML file and passes it to readPatchesFromXMLDocument
+	 *
+	 * @param file XML file to read from
+	 */
 	public void readPatchesFromFile(File file) {
 		try {
 			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(new FileInputStream(file)));
@@ -58,6 +94,11 @@ public class Patcher {
 		}
 	}
 
+	/**
+	 * Convenience method which reads an XML document from the input stream and passes it to readPatchesFromXMLDocument
+	 *
+	 * @param inputStream input stream to read from
+	 */
 	public void readPatchesFromInputStream(InputStream inputStream) {
 		try {
 			readPatchesFromXmlDocument(DomUtil.readDocumentFromInputStream(inputStream));
@@ -66,6 +107,11 @@ public class Patcher {
 		}
 	}
 
+	/**
+	 * Reads patches from the given XML Document
+	 *
+	 * @param document XML document
+	 */
 	public void readPatchesFromXmlDocument(Document document) {
 		List<Element> patchGroupElements = DomUtil.elementList(document.getDocumentElement().getChildNodes());
 		for (Element patchGroupElement : patchGroupElements) {
@@ -74,14 +120,37 @@ public class Patcher {
 		}
 	}
 
-	public boolean willTransform(String name) {
-		return getPatchGroup(name) != null;
+	/**
+	 * Returns whether the given class will be patched
+	 *
+	 * @param className Name of the class to check
+	 * @return Whether a patch exists for that class
+	 */
+	public boolean willPatch(String className) {
+		return getPatchGroup(className) != null;
 	}
 
-	public synchronized byte[] transform(String name, byte[] originalBytes) {
-		PatchGroup patchGroup = getPatchGroup(name);
+	/**
+	 * Patch the class with the given name, if it has a patch associated with it.
+	 *
+	 * @param className Name of the class
+	 * @return Returns patched class if needed, else returns null
+	 */
+	public byte[] patch(String className) {
+		return patch(className, null);
+	}
+
+	/**
+	 * Patch the class with the given name, if it has a patch associated with it.
+	 *
+	 * @param className     Name of the class
+	 * @param originalBytes original class bytes
+	 * @return Returns patched class if needed, else returns original class
+	 */
+	public synchronized byte[] patch(String className, byte[] originalBytes) {
+		PatchGroup patchGroup = getPatchGroup(className);
 		if (patchGroup != null) {
-			return patchGroup.getClassBytes(name, originalBytes);
+			return patchGroup.getClassBytes(className, originalBytes);
 		}
 		return originalBytes;
 	}
@@ -90,7 +159,161 @@ public class Patcher {
 		return classToPatchGroup.get(name);
 	}
 
-	private static final Splitter idSplitter = Splitter.on("  ").trimResults().omitEmptyStrings();
+	private static class PatchDescriptor {
+		private final Map<String, String> attributes;
+		private final String patch;
+		private String methods;
+
+		PatchDescriptor(Element element) {
+			attributes = DomUtil.getAttributes(element);
+			methods = element.getTextContent().trim();
+			patch = element.getTagName();
+		}
+
+		public String set(String name, String value) {
+			return attributes.put(name, value);
+		}
+
+		public String get(String name) {
+			return attributes.get(name);
+		}
+
+		public Map<String, String> getAttributes() {
+			return attributes;
+		}
+
+		public String getMethods() {
+			return methods;
+		}
+
+		public void setMethods(String methods) {
+			this.methods = methods;
+		}
+
+		public String getPatch() {
+			return patch;
+		}
+	}
+
+	private static class PatchMethodDescriptor {
+		public final String name;
+		public final List<String> requiredAttributes;
+		public final Method patchMethod;
+		public final boolean isClassPatch;
+		public final boolean emptyConstructor;
+
+		private PatchMethodDescriptor(Method method, Patch patch) {
+			String name = patch.name();
+			if (Arrays.asList(method.getParameterTypes()).contains(Map.class)) {
+				this.requiredAttributes = Lists.newArrayList(Splitter.on(",").trimResults().split(patch.requiredAttributes()));
+			} else {
+				this.requiredAttributes = null;
+			}
+			if (name == null || name.isEmpty()) {
+				name = method.getName();
+			}
+			this.name = name;
+			emptyConstructor = patch.emptyConstructor();
+			isClassPatch = method.getParameterTypes()[0].equals(CtClass.class);
+			patchMethod = method;
+		}
+
+		public Object run(PatchDescriptor patchDescriptor, CtClass ctClass, Object patchClassInstance) {
+			String methods = patchDescriptor.getMethods();
+			Map<String, String> attributes = patchDescriptor.getAttributes();
+			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
+			attributesClean.remove("code");
+			PatcherLog.fine("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
+			if (requiredAttributes != null && !attributes.keySet().containsAll(requiredAttributes)) {
+				PatcherLog.severe("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
+				return null;
+			}
+			if ("^all^".equals(methods)) {
+				patchDescriptor.set("silent", "true");
+				List<CtBehavior> ctBehaviors = new ArrayList<CtBehavior>();
+				Collections.addAll(ctBehaviors, ctClass.getDeclaredMethods());
+				Collections.addAll(ctBehaviors, ctClass.getDeclaredConstructors());
+				CtBehavior initializer = ctClass.getClassInitializer();
+				if (initializer != null) {
+					ctBehaviors.add(initializer);
+				}
+				for (CtBehavior ctBehavior : ctBehaviors) {
+					run(ctBehavior, attributes, patchClassInstance);
+				}
+			} else if (isClassPatch || (!emptyConstructor && methods.isEmpty())) {
+				return run(ctClass, attributes, patchClassInstance);
+			} else if (methods.isEmpty()) {
+				for (CtConstructor ctConstructor : ctClass.getDeclaredConstructors()) {
+					run(ctConstructor, attributes, patchClassInstance);
+				}
+			} else if ("^static^".equals(methods)) {
+				CtConstructor ctBehavior = ctClass.getClassInitializer();
+				if (ctBehavior == null) {
+					PatcherLog.severe("No static initializer found patching " + ctClass.getName() + " with " + toString());
+				} else {
+					run(ctBehavior, attributes, patchClassInstance);
+				}
+			} else {
+				List<MethodDescription> methodDescriptions = MethodDescription.fromListString(ctClass.getName(), methods);
+				for (MethodDescription methodDescription : methodDescriptions) {
+					CtMethod ctMethod;
+					try {
+						ctMethod = methodDescription.inClass(ctClass);
+					} catch (Throwable t) {
+						if (!attributes.containsKey("allowMissing")) {
+							PatcherLog.warning("", t);
+						}
+						continue;
+					}
+					run(ctMethod, attributes, patchClassInstance);
+				}
+			}
+			return null;
+		}
+
+		private Object run(CtClass ctClass, Map<String, String> attributes, Object patchClassInstance) {
+			try {
+				if (requiredAttributes == null) {
+					return patchMethod.invoke(patchClassInstance, ctClass);
+				} else {
+					return patchMethod.invoke(patchClassInstance, ctClass, attributes);
+				}
+			} catch (Throwable t) {
+				if (t instanceof InvocationTargetException) {
+					t = t.getCause();
+				}
+				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
+					PatcherLog.severe("Code: " + attributes.get("code"));
+				}
+				PatcherLog.severe("Error patching " + ctClass.getName() + " with " + toString(), t);
+				return null;
+			}
+		}
+
+		private Object run(CtBehavior ctBehavior, Map<String, String> attributes, Object patchClassInstance) {
+			try {
+				if (requiredAttributes == null) {
+					return patchMethod.invoke(patchClassInstance, ctBehavior);
+				} else {
+					return patchMethod.invoke(patchClassInstance, ctBehavior, attributes);
+				}
+			} catch (Throwable t) {
+				if (t instanceof InvocationTargetException) {
+					t = t.getCause();
+				}
+				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
+					PatcherLog.severe("Code: " + attributes.get("code"));
+				}
+				PatcherLog.severe("Error patching " + ctBehavior.getName() + " in " + ctBehavior.getDeclaringClass().getName() + " with " + toString(), t);
+				return null;
+			}
+		}
+
+		@Override
+		public String toString() {
+			return name;
+		}
+	}
 
 	private class PatchGroup {
 		public final String name;
@@ -248,9 +471,9 @@ public class Patcher {
 		}
 
 		private class ClassPatchDescriptor {
-			private final Map<String, String> attributes;
 			public final String name;
 			public final List<PatchDescriptor> patches = new ArrayList<PatchDescriptor>();
+			private final Map<String, String> attributes;
 
 			private ClassPatchDescriptor(Element element) {
 				attributes = DomUtil.getAttributes(element);
@@ -263,8 +486,7 @@ public class Patcher {
 					List<MethodDescription> methodDescriptionList = MethodDescription.fromListString(deobfuscatedClass.name, patchDescriptor.getMethods());
 					if (!patchDescriptor.getMethods().isEmpty()) {
 						patchDescriptor.set("deobf", methodDescriptionList.get(0).getShortName());
-						//noinspection unchecked
-						patchDescriptor.setMethods(MethodDescription.toListString((List<MethodDescription>) mappings.map(methodDescriptionList)));
+						patchDescriptor.setMethods(MethodDescription.toListString(mappings.map(methodDescriptionList)));
 					}
 					String field = patchDescriptor.get("field"), prefix = "";
 					if (field != null && !field.isEmpty()) {
@@ -279,7 +501,7 @@ public class Patcher {
 							if (!field.isEmpty() && (field.charAt(0) == '$') && prefix.isEmpty()) {
 								ArrayList<String> parameterList = new ArrayList<String>();
 								for (MethodDescription methodDescriptionOriginal : methodDescriptionList) {
-									MethodDescription methodDescription = mappings.rmap(mappings.map(methodDescriptionOriginal));
+									MethodDescription methodDescription = mappings.unmap(mappings.map(methodDescriptionOriginal));
 									methodDescription = methodDescription == null ? methodDescriptionOriginal : methodDescription;
 									int i = 0;
 									for (String parameter : methodDescription.getParameterList()) {
@@ -327,162 +549,6 @@ public class Patcher {
 				}
 				return ctClass;
 			}
-		}
-	}
-
-	private static class PatchDescriptor {
-		private final Map<String, String> attributes;
-		private String methods;
-		private final String patch;
-
-		PatchDescriptor(Element element) {
-			attributes = DomUtil.getAttributes(element);
-			methods = element.getTextContent().trim();
-			patch = element.getTagName();
-		}
-
-		public String set(String name, String value) {
-			return attributes.put(name, value);
-		}
-
-		public String get(String name) {
-			return attributes.get(name);
-		}
-
-		public Map<String, String> getAttributes() {
-			return attributes;
-		}
-
-		public String getMethods() {
-			return methods;
-		}
-
-		public String getPatch() {
-			return patch;
-		}
-
-		public void setMethods(String methods) {
-			this.methods = methods;
-		}
-	}
-
-	public static class PatchMethodDescriptor {
-		public final String name;
-		public final List<String> requiredAttributes;
-		public final Method patchMethod;
-		public final boolean isClassPatch;
-		public final boolean emptyConstructor;
-
-		public PatchMethodDescriptor(Method method, Patch patch) {
-			String name = patch.name();
-			if (Arrays.asList(method.getParameterTypes()).contains(Map.class)) {
-				this.requiredAttributes = Lists.newArrayList(Splitter.on(",").trimResults().split(patch.requiredAttributes()));
-			} else {
-				this.requiredAttributes = null;
-			}
-			if (name == null || name.isEmpty()) {
-				name = method.getName();
-			}
-			this.name = name;
-			emptyConstructor = patch.emptyConstructor();
-			isClassPatch = method.getParameterTypes()[0].equals(CtClass.class);
-			patchMethod = method;
-		}
-
-		public Object run(PatchDescriptor patchDescriptor, CtClass ctClass, Object patchClassInstance) {
-			String methods = patchDescriptor.getMethods();
-			Map<String, String> attributes = patchDescriptor.getAttributes();
-			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
-			attributesClean.remove("code");
-			PatcherLog.fine("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
-			if (requiredAttributes != null && !attributes.keySet().containsAll(requiredAttributes)) {
-				PatcherLog.severe("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
-				return null;
-			}
-			if ("^all^".equals(methods)) {
-				patchDescriptor.set("silent", "true");
-				List<CtBehavior> ctBehaviors = new ArrayList<CtBehavior>();
-				Collections.addAll(ctBehaviors, ctClass.getDeclaredMethods());
-				Collections.addAll(ctBehaviors, ctClass.getDeclaredConstructors());
-				CtBehavior initializer = ctClass.getClassInitializer();
-				if (initializer != null) {
-					ctBehaviors.add(initializer);
-				}
-				for (CtBehavior ctBehavior : ctBehaviors) {
-					run(ctBehavior, attributes, patchClassInstance);
-				}
-			} else if (isClassPatch || (!emptyConstructor && methods.isEmpty())) {
-				return run(ctClass, attributes, patchClassInstance);
-			} else if (methods.isEmpty()) {
-				for (CtConstructor ctConstructor : ctClass.getDeclaredConstructors()) {
-					run(ctConstructor, attributes, patchClassInstance);
-				}
-			} else if ("^static^".equals(methods)) {
-				CtConstructor ctBehavior = ctClass.getClassInitializer();
-				if (ctBehavior == null) {
-					PatcherLog.severe("No static initializer found patching " + ctClass.getName() + " with " + toString());
-				} else {
-					run(ctBehavior, attributes, patchClassInstance);
-				}
-			} else {
-				List<MethodDescription> methodDescriptions = MethodDescription.fromListString(ctClass.getName(), methods);
-				for (MethodDescription methodDescription : methodDescriptions) {
-					CtMethod ctMethod;
-					try {
-						ctMethod = methodDescription.inClass(ctClass);
-					} catch (Throwable t) {
-						if (!attributes.containsKey("allowMissing")) {
-							PatcherLog.warning("", t);
-						}
-						continue;
-					}
-					run(ctMethod, attributes, patchClassInstance);
-				}
-			}
-			return null;
-		}
-
-		private Object run(CtClass ctClass, Map<String, String> attributes, Object patchClassInstance) {
-			try {
-				if (requiredAttributes == null) {
-					return patchMethod.invoke(patchClassInstance, ctClass);
-				} else {
-					return patchMethod.invoke(patchClassInstance, ctClass, attributes);
-				}
-			} catch (Throwable t) {
-				if (t instanceof InvocationTargetException) {
-					t = t.getCause();
-				}
-				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
-					PatcherLog.severe("Code: " + attributes.get("code"));
-				}
-				PatcherLog.severe("Error patching " + ctClass.getName() + " with " + toString(), t);
-				return null;
-			}
-		}
-
-		private Object run(CtBehavior ctBehavior, Map<String, String> attributes, Object patchClassInstance) {
-			try {
-				if (requiredAttributes == null) {
-					return patchMethod.invoke(patchClassInstance, ctBehavior);
-				} else {
-					return patchMethod.invoke(patchClassInstance, ctBehavior, attributes);
-				}
-			} catch (Throwable t) {
-				if (t instanceof InvocationTargetException) {
-					t = t.getCause();
-				}
-				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
-					PatcherLog.severe("Code: " + attributes.get("code"));
-				}
-				PatcherLog.severe("Error patching " + ctBehavior.getName() + " in " + ctBehavior.getDeclaringClass().getName() + " with " + toString(), t);
-				return null;
-			}
-		}
-
-		@Override
-		public String toString() {
-			return name;
 		}
 	}
 }

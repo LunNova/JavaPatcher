@@ -1,5 +1,8 @@
 package me.nallar.javapatcher.mappings;
 
+/**
+ * Uniquely identifies a class
+ */
 public class ClassDescription {
 	public final String name;
 

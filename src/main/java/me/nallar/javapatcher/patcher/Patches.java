@@ -41,6 +41,9 @@ import org.omg.CORBA.IntHolder;
 import java.io.*;
 import java.util.*;
 
+/**
+ *
+ */
 @SuppressWarnings({"MethodMayBeStatic", "ObjectAllocationInLoop", "AnonymousInnerClass"})
 public class Patches {
 	private final ClassPool classPool;
@@ -49,6 +52,47 @@ public class Patches {
 	public Patches(ClassPool classPool, Mappings mappings) {
 		this.classPool = classPool;
 		this.mappings = mappings;
+	}
+
+	private static String classSignatureToName(String signature) {
+		//noinspection HardcodedFileSeparator
+		return signature.substring(1, signature.length() - 1).replace("/", ".");
+	}
+
+	public static void findUnusedFields(CtClass ctClass) {
+		final Set<String> readFields = new HashSet<String>();
+		final Set<String> writtenFields = new HashSet<String>();
+		try {
+			ctClass.instrument(new ExprEditor() {
+				@Override
+				public void edit(FieldAccess fieldAccess) {
+					if (fieldAccess.isReader()) {
+						readFields.add(fieldAccess.getFieldName());
+					} else if (fieldAccess.isWriter()) {
+						writtenFields.add(fieldAccess.getFieldName());
+					}
+				}
+			});
+			for (CtField ctField : ctClass.getDeclaredFields()) {
+				String fieldName = ctField.getName();
+				if (fieldName.length() <= 2) {
+					continue;
+				}
+				if (Modifier.isPrivate(ctField.getModifiers())) {
+					boolean written = writtenFields.contains(fieldName);
+					boolean read = readFields.contains(fieldName);
+					if (read && written) {
+						continue;
+					}
+					PatcherLog.fine("Field " + fieldName + " in " + ctClass.getName() + " is read: " + read + ", written: " + written);
+					if (!written && !read) {
+						ctClass.removeField(ctField);
+					}
+				}
+			}
+		} catch (Throwable t) {
+			throw SneakyThrow.throw_(t);
+		}
 	}
 
 	public void transformClassStaticMethods(CtClass ctClass, String className) {
@@ -465,10 +509,6 @@ public class Patches {
 		if (replaced.value == 0 && !attributes.containsKey("silent")) {
 			PatcherLog.severe("Didn't replace any field accesses.");
 		}
-	}
-
-	private static class ExceptionsArentForControlFlow extends RuntimeException {
-		private static final long serialVersionUID = 1;
 	}
 
 	@Patch
@@ -1317,44 +1357,7 @@ public class Patches {
 		ctMethod.getDeclaringClass().removeMethod(ctMethod);
 	}
 
-	private static String classSignatureToName(String signature) {
-		//noinspection HardcodedFileSeparator
-		return signature.substring(1, signature.length() - 1).replace("/", ".");
-	}
-
-	public static void findUnusedFields(CtClass ctClass) {
-		final Set<String> readFields = new HashSet<String>();
-		final Set<String> writtenFields = new HashSet<String>();
-		try {
-			ctClass.instrument(new ExprEditor() {
-				@Override
-				public void edit(FieldAccess fieldAccess) {
-					if (fieldAccess.isReader()) {
-						readFields.add(fieldAccess.getFieldName());
-					} else if (fieldAccess.isWriter()) {
-						writtenFields.add(fieldAccess.getFieldName());
-					}
-				}
-			});
-			for (CtField ctField : ctClass.getDeclaredFields()) {
-				String fieldName = ctField.getName();
-				if (fieldName.length() <= 2) {
-					continue;
-				}
-				if (Modifier.isPrivate(ctField.getModifiers())) {
-					boolean written = writtenFields.contains(fieldName);
-					boolean read = readFields.contains(fieldName);
-					if (read && written) {
-						continue;
-					}
-					PatcherLog.fine("Field " + fieldName + " in " + ctClass.getName() + " is read: " + read + ", written: " + written);
-					if (!written && !read) {
-						ctClass.removeField(ctField);
-					}
-				}
-			}
-		} catch (Throwable t) {
-			throw SneakyThrow.throw_(t);
-		}
+	private static class ExceptionsArentForControlFlow extends RuntimeException {
+		private static final long serialVersionUID = 1;
 	}
 }

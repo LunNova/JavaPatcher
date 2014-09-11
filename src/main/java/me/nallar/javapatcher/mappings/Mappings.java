@@ -2,18 +2,27 @@ package me.nallar.javapatcher.mappings;
 
 import java.util.*;
 
+/**
+ * Maps method/field/class names in patches to allow obfuscated code to be patched.
+ */
 public abstract class Mappings {
-	@SuppressWarnings({"unchecked", "rawtypes"})
-	public List<?> map(List<?> things) {
-		List mappedThings = new ArrayList();
-		for (Object thing : things) {
+	/**
+	 * Takes a list of Class/Method/FieldDescriptions and maps them all using the appropriate map(*Description)
+	 *
+	 * @param list List of Class/Method/FieldDescriptions
+	 * @return Mapped List
+	 */
+	@SuppressWarnings("unchecked")
+	public final <T> List<T> map(List<T> list) {
+		List<T> mappedThings = new ArrayList();
+		for (Object thing : list) {
 			// TODO - cleaner way of doing this?
 			if (thing instanceof MethodDescription) {
-				mappedThings.add(map((MethodDescription) thing));
+				mappedThings.add((T) map((MethodDescription) thing));
 			} else if (thing instanceof ClassDescription) {
-				mappedThings.add(map((ClassDescription) thing));
+				mappedThings.add((T) map((ClassDescription) thing));
 			} else if (thing instanceof FieldDescription) {
-				mappedThings.add(map((FieldDescription) thing));
+				mappedThings.add((T) map((FieldDescription) thing));
 			} else {
 				throw new IllegalArgumentException("Must be mappable: " + thing + "isn't!");
 			}
@@ -27,9 +36,7 @@ public abstract class Mappings {
 
 	public abstract FieldDescription map(FieldDescription fieldDescription);
 
-	public abstract MethodDescription rmap(MethodDescription methodDescription);
+	public abstract MethodDescription unmap(MethodDescription methodDescription);
 
 	public abstract String obfuscate(String code);
-
-	public abstract String shortClassNameToFullClassName(String shortName);
 }

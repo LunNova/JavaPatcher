@@ -8,6 +8,9 @@ import me.nallar.javapatcher.PatcherLog;
 import java.lang.reflect.*;
 import java.util.*;
 
+/**
+ * Uniquely identifies a method
+ */
 public class MethodDescription {
 	public final String clazz;
 	public final String returnType;
@@ -33,6 +36,69 @@ public class MethodDescription {
 	public MethodDescription(String clazz, String name, String MCPDescription) {
 		//MCP style - (Lxv;IIILanw;Ljava/util/List;Llq;)V
 		this(clazz, name, MCPDescription.substring(MCPDescription.lastIndexOf(')') + 1), MCPDescription.substring(1, MCPDescription.indexOf(')')));
+	}
+
+	private static String getJVMName(Class<?> clazz) {
+		if (clazz.isPrimitive()) {
+			if (clazz.equals(Boolean.TYPE)) {
+				return "Z";
+			} else if (clazz.equals(Short.TYPE)) {
+				return "S";
+			} else if (clazz.equals(Long.TYPE)) {
+				return "J";
+			} else if (clazz.equals(Integer.TYPE)) {
+				return "I";
+			} else if (clazz.equals(Float.TYPE)) {
+				return "F";
+			} else if (clazz.equals(Double.TYPE)) {
+				return "D";
+			} else if (clazz.equals(Character.TYPE)) {
+				return "C";
+			}
+		}
+		return 'L' + clazz.getCanonicalName() + ';';
+	}
+
+	private static String getParameterList(Method method) {
+		List<Class<?>> parameterClasses = new ArrayList<Class<?>>(Arrays.asList(method.getParameterTypes()));
+		StringBuilder parameters = new StringBuilder();
+		for (Class<?> clazz : parameterClasses) {
+			parameters.append(getJVMName(clazz));
+		}
+		return parameters.toString();
+	}
+
+	public static MethodDescription fromString(String clazz, String methodString) {
+		if (methodString.contains("(")) {
+			try {
+				String methodName = methodString.substring(0, methodString.indexOf('('));
+				methodString = methodString.replace('.', '/');
+				return new MethodDescription(clazz, methodName, methodString.substring(methodString.indexOf('(')));
+			} catch (Exception e) {
+				PatcherLog.severe("Failed to parse " + methodString, e);
+			}
+		}
+		return new MethodDescription(clazz, methodString, "", "");
+	}
+
+	public static List<MethodDescription> fromListString(String clazz, String methodList) {
+		ArrayList<MethodDescription> methodDescriptions = new ArrayList<MethodDescription>();
+		for (String methodString : Splitter.on(",").trimResults().split(methodList)) {
+			methodDescriptions.add(fromString(clazz, methodString));
+		}
+		return methodDescriptions;
+	}
+
+	public static String toListString(List<MethodDescription> methodDescriptions) {
+		if (methodDescriptions.isEmpty()) {
+			return "";
+		}
+		StringBuilder stringBuilder = new StringBuilder();
+		stringBuilder.append(methodDescriptions.remove(0));
+		for (MethodDescription methodDescription : methodDescriptions) {
+			stringBuilder.append(',').append(methodDescription);
+		}
+		return stringBuilder.toString();
 	}
 
 	public String getShortName() {
@@ -105,69 +171,6 @@ public class MethodDescription {
 			}
 		}
 		throw new RuntimeException("Method not found: " + this + " was not found in " + ctClass.getName());
-	}
-
-	private static String getJVMName(Class<?> clazz) {
-		if (clazz.isPrimitive()) {
-			if (clazz.equals(Boolean.TYPE)) {
-				return "Z";
-			} else if (clazz.equals(Short.TYPE)) {
-				return "S";
-			} else if (clazz.equals(Long.TYPE)) {
-				return "J";
-			} else if (clazz.equals(Integer.TYPE)) {
-				return "I";
-			} else if (clazz.equals(Float.TYPE)) {
-				return "F";
-			} else if (clazz.equals(Double.TYPE)) {
-				return "D";
-			} else if (clazz.equals(Character.TYPE)) {
-				return "C";
-			}
-		}
-		return 'L' + clazz.getCanonicalName() + ';';
-	}
-
-	private static String getParameterList(Method method) {
-		List<Class<?>> parameterClasses = new ArrayList<Class<?>>(Arrays.asList(method.getParameterTypes()));
-		StringBuilder parameters = new StringBuilder();
-		for (Class<?> clazz : parameterClasses) {
-			parameters.append(getJVMName(clazz));
-		}
-		return parameters.toString();
-	}
-
-	public static MethodDescription fromString(String clazz, String methodString) {
-		if (methodString.contains("(")) {
-			try {
-				String methodName = methodString.substring(0, methodString.indexOf('('));
-				methodString = methodString.replace('.', '/');
-				return new MethodDescription(clazz, methodName, methodString.substring(methodString.indexOf('(')));
-			} catch (Exception e) {
-				PatcherLog.severe("Failed to parse " + methodString, e);
-			}
-		}
-		return new MethodDescription(clazz, methodString, "", "");
-	}
-
-	public static List<MethodDescription> fromListString(String clazz, String methodList) {
-		ArrayList<MethodDescription> methodDescriptions = new ArrayList<MethodDescription>();
-		for (String methodString : Splitter.on(",").trimResults().split(methodList)) {
-			methodDescriptions.add(fromString(clazz, methodString));
-		}
-		return methodDescriptions;
-	}
-
-	public static String toListString(List<MethodDescription> methodDescriptions) {
-		if (methodDescriptions.isEmpty()) {
-			return "";
-		}
-		StringBuilder stringBuilder = new StringBuilder();
-		stringBuilder.append(methodDescriptions.remove(0));
-		for (MethodDescription methodDescription : methodDescriptions) {
-			stringBuilder.append(',').append(methodDescription);
-		}
-		return stringBuilder.toString();
 	}
 
 	public void obfuscateClasses() {

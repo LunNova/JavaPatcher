@@ -10,8 +10,18 @@ package me.nallar.javapatcher.patcher;
 public enum SneakyThrow {
 	;
 
-	public static RuntimeException throw_(Throwable t) {
-		throw SneakyThrow.<RuntimeException>throwIgnoreCheckedErasure(t);
+	/**
+	 * Throws the passed throwable. Does not return. Return type given so
+	 * catch (CheckedException e) {
+	 * throw SneakyThrow.throw_(e);
+	 * }
+	 * can be used.
+	 *
+	 * @param throwable Throwable to throw
+	 * @return Never returns.
+	 */
+	public static RuntimeException throw_(Throwable throwable) {
+		throw SneakyThrow.<RuntimeException>throwIgnoreCheckedErasure(throwable);
 	}
 
 	private static <T extends Throwable> RuntimeException throwIgnoreCheckedErasure(Throwable toThrow) throws T {

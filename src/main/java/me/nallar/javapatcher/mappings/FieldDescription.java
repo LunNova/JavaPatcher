@@ -1,5 +1,8 @@
 package me.nallar.javapatcher.mappings;
 
+/**
+ * Uniquely identifies a field
+ */
 public class FieldDescription {
 	public final String className;
 	public final String name;
