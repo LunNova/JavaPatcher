@@ -59,40 +59,17 @@ public class Patches {
 		return signature.substring(1, signature.length() - 1).replace("/", ".");
 	}
 
-	public static void findUnusedFields(CtClass ctClass) {
-		final Set<String> readFields = new HashSet<String>();
-		final Set<String> writtenFields = new HashSet<String>();
-		try {
-			ctClass.instrument(new ExprEditor() {
-				@Override
-				public void edit(FieldAccess fieldAccess) {
-					if (fieldAccess.isReader()) {
-						readFields.add(fieldAccess.getFieldName());
-					} else if (fieldAccess.isWriter()) {
-						writtenFields.add(fieldAccess.getFieldName());
-					}
-				}
-			});
-			for (CtField ctField : ctClass.getDeclaredFields()) {
-				String fieldName = ctField.getName();
-				if (fieldName.length() <= 2) {
-					continue;
-				}
-				if (Modifier.isPrivate(ctField.getModifiers())) {
-					boolean written = writtenFields.contains(fieldName);
-					boolean read = readFields.contains(fieldName);
-					if (read && written) {
-						continue;
-					}
-					PatcherLog.fine("Field " + fieldName + " in " + ctClass.getName() + " is read: " + read + ", written: " + written);
-					if (!written && !read) {
-						ctClass.removeField(ctField);
-					}
-				}
-			}
-		} catch (Throwable t) {
-			throw SneakyThrow.throw_(t);
-		}
+	/**
+	 * Extends the target class by adding all methods, fields and interfaces from the specified class
+	 * @param class
+	 */
+	@Patch (
+			requiredAttributes = "class"
+	)
+	public void mixin(CtClass ctClass, Map<String, String> attributes) throws NotFoundException {
+		String fromClass = attributes.get("class");
+		CtClass from = classPool.get(fromClass);
+		// TODO implement mixin patcher similar to what sponge does - old prepatcher way is fragile
 	}
 
 	public void transformClassStaticMethods(CtClass ctClass, String className) {
@@ -118,7 +95,6 @@ public class Patches {
 			}
 		}
 	}
-
 
 	/**
 	 * Disables a method. Only works on methods with void return type. Use replaceMethod
@@ -780,126 +756,6 @@ public class Patches {
 			}
 			iterator.writeByte(Opcode.RETURN, i);
 			methodInfo.rebuildStackMapIf6(ctClass.getClassPool(), ctClass.getClassFile2());
-		}
-	}
-
-	/**
-	 * Extends the target class by adding all methods, fields and interfaces from the specified class
-	 *
-	 * @param class Class to get methods/fields/interfaces to add
-	 */
-	@Patch(
-			requiredAttributes = "class"
-	)
-	public void extendFromClass(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, BadBytecode {
-		String fromClass = attributes.get("class");
-		CtClass from = classPool.get(fromClass);
-		transformClassStaticMethods(from, ctClass.getName());
-		ClassMap classMap = new ClassMap();
-		classMap.put(fromClass, ctClass.getName());
-		for (CtField ctField : from.getDeclaredFields()) {
-			if (!ctField.getName().isEmpty() && ctField.getName().charAt(ctField.getName().length() - 1) == '_') {
-				ctField.setName(ctField.getName().substring(0, ctField.getName().length() - 1));
-			}
-			CtClass expectedType = ctField.getType();
-			boolean expectStatic = (ctField.getModifiers() & Modifier.STATIC) == Modifier.STATIC;
-			String fieldName = ctField.getName();
-			try {
-				CtClass type = ctClass.getDeclaredField(fieldName).getType();
-				if (type != expectedType) {
-					PatcherLog.warning("Field " + fieldName + " already exists, but as a different type. Exists: " + type.getName() + ", expected: " + expectedType.getName());
-					ctClass.getDeclaredField(fieldName).setType(expectedType);
-				}
-				boolean isStatic = (ctField.getModifiers() & Modifier.STATIC) == Modifier.STATIC;
-				if (isStatic != expectStatic) {
-					PatcherLog.severe("Can't add field " + fieldName + " as it already exists, but it is static: " + isStatic + " and we expected: " + expectStatic);
-				}
-			} catch (NotFoundException ignored) {
-				ctClass.addField(new CtField(ctField, ctClass));
-			}
-			if (expectStatic) {
-				CtBehavior initializer = ctClass.getClassInitializer();
-				if (initializer != null) {
-					removeInitializers(initializer, ctField);
-				}
-			}
-		}
-		for (CtMethod newMethod : from.getDeclaredMethods()) {
-			if ((newMethod.getName().startsWith("construct") || newMethod.getName().startsWith("staticConstruct"))) {
-				try {
-					ctClass.getDeclaredMethod(newMethod.getName());
-					boolean found = true;
-					int i = 0;
-					String name = newMethod.getName();
-					while (found) {
-						i++;
-						try {
-							ctClass.getDeclaredMethod(name + i);
-						} catch (NotFoundException e2) {
-							found = false;
-						}
-					}
-					newMethod.setName(name + i);
-				} catch (NotFoundException ignored) {
-					// Not found - no need to change the name
-				}
-			}
-		}
-		for (CtMethod newMethod : from.getDeclaredMethods()) {
-			try {
-				CtMethod oldMethod = ctClass.getDeclaredMethod(newMethod.getName(), newMethod.getParameterTypes());
-				replaceMethod(oldMethod, newMethod);
-				if (Modifier.isSynchronized(newMethod.getModifiers())) {
-					oldMethod.setModifiers(oldMethod.getModifiers() | Modifier.SYNCHRONIZED);
-				}
-			} catch (NotFoundException ignored) {
-				CtMethod added = CtNewMethod.copy(newMethod, ctClass, classMap);
-				ctClass.addMethod(added);
-				MethodInfo addedMethodInfo = added.getMethodInfo2();
-				String addedDescriptor = addedMethodInfo.getDescriptor();
-				String newDescriptor = newMethod.getMethodInfo2().getDescriptor();
-				if (!newDescriptor.equals(addedDescriptor)) {
-					addedMethodInfo.setDescriptor(newDescriptor);
-				}
-				replaceMethod(added, newMethod);
-				if (added.getName().startsWith("construct")) {
-					try {
-						insertSuper(added);
-					} catch (CannotCompileException ignore) {
-					}
-					CtMethod runConstructors;
-					try {
-						runConstructors = ctClass.getMethod("runConstructors", "()V");
-					} catch (NotFoundException e) {
-						runConstructors = CtNewMethod.make("public void runConstructors() { }", ctClass);
-						ctClass.addMethod(runConstructors);
-						try {
-							ctClass.getField("isConstructed");
-						} catch (NotFoundException ignore) {
-							ctClass.addField(new CtField(classPool.get("boolean"), "isConstructed", ctClass));
-						}
-						for (CtBehavior ctBehavior : ctClass.getDeclaredConstructors()) {
-							ctBehavior.insertAfter("{ if(!this.isConstructed) { this.isConstructed = true; this.runConstructors(); } }");
-						}
-					}
-					try {
-						ctClass.getSuperclass().getMethod(added.getName(), "()V");
-					} catch (NotFoundException ignore) {
-						runConstructors.insertAfter(added.getName() + "();");
-					}
-				}
-				if (added.getName().startsWith("staticConstruct")) {
-					ctClass.makeClassInitializer().insertAfter("{ " + added.getName() + "(); }");
-				}
-			}
-		}
-		for (CtClass CtInterface : from.getInterfaces()) {
-			ctClass.addInterface(CtInterface);
-		}
-		CtConstructor initializer = from.getClassInitializer();
-		if (initializer != null) {
-			ctClass.addMethod(initializer.toMethod("patchStaticInitializer", ctClass));
-			ctClass.makeClassInitializer().insertAfter("patchStaticInitializer();");
 		}
 	}
 
