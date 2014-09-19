@@ -292,7 +292,11 @@ enum DomUtil {
 			throw new RuntimeException(e);
 		} finally {
 			if (inputStream != null) {
-				Closeables.closeQuietly(inputStream);
+				try {
+					Closeables.close(inputStream, true);
+				} catch (IOException impossible) {
+					throw new AssertionError(impossible);
+				}
 			}
 		}
 	}
