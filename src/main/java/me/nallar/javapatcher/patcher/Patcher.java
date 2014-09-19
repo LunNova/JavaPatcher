@@ -168,6 +168,7 @@ public class Patcher {
 	 * Writes debug info about this patcher to the debug logger
 	 */
 	public void logDebugInfo() {
+		PatcherLog.info("Logging Patcher debug info of " + classToPatchGroup.size() + " patch groups");
 		for (PatchGroup patchGroup : classToPatchGroup.values()) {
 			PatcherLog.info(patchGroup.toString());
 		}
