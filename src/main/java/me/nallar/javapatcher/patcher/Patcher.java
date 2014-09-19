@@ -169,9 +169,8 @@ public class Patcher {
 	 */
 	public void logDebugInfo() {
 		for (PatchGroup patchGroup : classToPatchGroup.values()) {
-			PatcherLog.warn("");
+			PatcherLog.info(patchGroup.toString());
 		}
-
 	}
 
 	private PatchGroup getPatchGroup(String name) {
@@ -366,6 +365,11 @@ public class Patcher {
 				}
 				(other == null ? this : other).addClassPatchDescriptor(classPatchDescriptor);
 			}
+		}
+
+		@Override
+		public String toString() {
+			return "name: " + name + "\tnumber of patches: " + patches.size();
 		}
 
 		private void addClassPatchDescriptor(ClassPatchDescriptor classPatchDescriptor) {
