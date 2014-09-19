@@ -84,14 +84,14 @@ public class Patches {
 						replacement.setBody("{return " + mapped.name + "($$);}");
 						ctClass.addMethod(replacement);
 					} catch (CannotCompileException e) {
-						PatcherLog.severe("Failed to compile", e);
+						PatcherLog.error("Failed to compile", e);
 					}
 				} else {
-					PatcherLog.severe("Would remap " + methodDescription + " -> " + mapped + ", but not static.");
+					PatcherLog.error("Would remap " + methodDescription + " -> " + mapped + ", but not static.");
 				}
 			}
 			if (ctMethod.getName().length() == 1) {
-				PatcherLog.severe("1 letter length name " + ctMethod.getName() + " in " + ctClass.getName());
+				PatcherLog.error("1 letter length name " + ctMethod.getName() + " in " + ctClass.getName());
 			}
 		}
 	}
@@ -187,7 +187,7 @@ public class Patches {
 		} else if (code != null) {
 			method.setBody(code);
 		} else {
-			PatcherLog.severe("Missing required attributes for replaceMethod");
+			PatcherLog.error("Missing required attributes for replaceMethod");
 		}
 	}
 
@@ -225,7 +225,7 @@ public class Patches {
 			ctField = ctClass.getDeclaredField(attributes.get("field"));
 		} catch (NotFoundException e) {
 			if (!attributes.containsKey("silent")) {
-				PatcherLog.severe("Couldn't find field " + attributes.get("field"));
+				PatcherLog.error("Couldn't find field " + attributes.get("field"));
 			}
 			return;
 		}
@@ -308,7 +308,7 @@ public class Patches {
 		String ctFieldClass = attributes.get("fieldClass");
 		if (ctFieldClass != null) {
 			if (ctClass == o) {
-				PatcherLog.warning("Must set methods to run on if using fieldClass.");
+				PatcherLog.warn("Must set methods to run on if using fieldClass.");
 				return;
 			}
 			ctClass = classPool.get(ctFieldClass);
@@ -397,7 +397,7 @@ public class Patches {
 					if (newExprType.containsKey(newPos)) {
 						String assignedType = newExprType.get(newPos);
 						String block = '{' + newInitializer + '}';
-						PatcherLog.fine(assignedType + " at " + e.getFileName() + ':' + e.getLineNumber() + " replaced with " + block);
+						PatcherLog.trace(assignedType + " at " + e.getFileName() + ':' + e.getLineNumber() + " replaced with " + block);
 						e.replace(block);
 						replaced.value++;
 					}
@@ -405,7 +405,7 @@ public class Patches {
 			});
 		}
 		if (replaced.value == 0 && !attributes.containsKey("silent")) {
-			PatcherLog.severe("No field initializers found for replacement");
+			PatcherLog.error("No field initializers found for replacement");
 		}
 	}
 
@@ -449,7 +449,7 @@ public class Patches {
 			});
 		}
 		if (done.value == 0) {
-			PatcherLog.severe("No new expressions found for replacement.");
+			PatcherLog.error("No new expressions found for replacement.");
 		}
 	}
 
@@ -603,7 +603,7 @@ public class Patches {
 					try {
 						fieldName = fieldAccess.getFieldName();
 					} catch (ClassCastException e) {
-						PatcherLog.warning("Can't examine field access at " + fieldAccess.getLineNumber() + " which is a r: " + fieldAccess.isReader() + " w: " + fieldAccess.isWriter());
+						PatcherLog.warn("Can't examine field access at " + fieldAccess.getLineNumber() + " which is a r: " + fieldAccess.isReader() + " w: " + fieldAccess.isWriter());
 						return;
 					}
 					if ((clazz == null || fieldAccess.getClassName().equals(clazz)) && fieldName.equals(field)) {
@@ -620,7 +620,7 @@ public class Patches {
 							fieldAccess.replace(writeCode);
 						} else if (fieldAccess.isReader() && readCode != null) {
 							fieldAccess.replace(readCode);
-							PatcherLog.fine("Replaced in " + ctBehavior + ' ' + fieldName + " read with " + readCode);
+							PatcherLog.trace("Replaced in " + ctBehavior + ' ' + fieldName + " read with " + readCode);
 						}
 					}
 				}
@@ -628,7 +628,7 @@ public class Patches {
 		} catch (ExceptionsArentForControlFlow ignored) {
 		}
 		if (replaced.value == 0 && !attributes.containsKey("silent")) {
-			PatcherLog.severe("Didn't replace any field accesses.");
+			PatcherLog.error("Didn't replace any field accesses.");
 		}
 	}
 
@@ -680,7 +680,7 @@ public class Patches {
 							}
 						}
 						replaced.value++;
-						PatcherLog.fine("Replaced call to " + methodCall.getClassName() + '/' + methodCall.getMethodName() + " in " + ctBehavior.getLongName());
+						PatcherLog.trace("Replaced call to " + methodCall.getClassName() + '/' + methodCall.getMethodName() + " in " + ctBehavior.getLongName());
 						if (removeAfter) {
 							try {
 								removeAfterIndex(ctBehavior, methodCall.indexOfBytecode());
@@ -696,7 +696,7 @@ public class Patches {
 		} catch (ExceptionsArentForControlFlow ignored) {
 		}
 		if (replaced.value == 0 && !attributes.containsKey("silent")) {
-			PatcherLog.warning("Didn't find any method calls to replace in " + ctBehavior.getLongName() + ". Class: " + className + ", method: " + method + ", index: " + index);
+			PatcherLog.warn("Didn't find any method calls to replace in " + ctBehavior.getLongName() + ". Class: " + className + ", method: " + method + ", index: " + index);
 		}
 	}
 
@@ -715,7 +715,7 @@ public class Patches {
 		String removeIndexString = attributes.get("index");
 		int removeIndex = removeIndexString == null ? -1 : Integer.parseInt(removeIndexString);
 		int currentIndex = 0;
-		PatcherLog.fine("Removing until " + attributes.get("opcode") + ':' + opcode + " at " + removeIndex);
+		PatcherLog.trace("Removing until " + attributes.get("opcode") + ':' + opcode + " at " + removeIndex);
 		int removed = 0;
 		CtClass ctClass = ctBehavior.getDeclaringClass();
 		MethodInfo methodInfo = ctBehavior.getMethodInfo();
@@ -730,7 +730,7 @@ public class Patches {
 						iterator.writeByte(Opcode.NOP, i);
 					}
 					removed++;
-					PatcherLog.fine("Removed until " + index);
+					PatcherLog.trace("Removed until " + index);
 					if (removeIndex == -2) {
 						break;
 					}
@@ -739,12 +739,12 @@ public class Patches {
 			methodInfo.rebuildStackMapIf6(ctClass.getClassPool(), ctClass.getClassFile());
 		}
 		if (removed == 0) {
-			PatcherLog.warning("Didn't remove until " + attributes.get("opcode") + ':' + opcode + " at " + removeIndex + " in " + ctBehavior.getName() + ", no matches.");
+			PatcherLog.warn("Didn't remove until " + attributes.get("opcode") + ':' + opcode + " at " + removeIndex + " in " + ctBehavior.getName() + ", no matches.");
 		}
 	}
 
 	private void removeAfterIndex(CtBehavior ctBehavior, int index) throws BadBytecode {
-		PatcherLog.fine("Removed after opcode index " + index + " in " + ctBehavior.getLongName());
+		PatcherLog.trace("Removed after opcode index " + index + " in " + ctBehavior.getLongName());
 		CtClass ctClass = ctBehavior.getDeclaringClass();
 		MethodInfo methodInfo = ctBehavior.getMethodInfo2();
 		CodeAttribute codeAttribute = methodInfo.getCodeAttribute();
@@ -927,7 +927,7 @@ public class Patches {
 		}
 		try {
 			CtField ctField = ctClass.getDeclaredField(field);
-			PatcherLog.warning(field + " already exists as " + ctField);
+			PatcherLog.warn(field + " already exists as " + ctField);
 			return;
 		} catch (NotFoundException ignored) {
 		}
@@ -1041,14 +1041,14 @@ public class Patches {
 			@Override
 			public void edit(MethodCall methodCall) throws CannotCompileException {
 				if ((className == null || methodCall.getClassName().equals(className)) && (method.isEmpty() || methodCall.getMethodName().equals(method)) && (index == -1 || currentIndex++ == index)) {
-					PatcherLog.fine("Replaced " + methodCall.getMethodName() + " from " + ctBehavior);
+					PatcherLog.trace("Replaced " + methodCall.getMethodName() + " from " + ctBehavior);
 					methodCall.replace("{ " + field + ".lock(); try { $_ =  $proceed($$); } finally { " + field + ".unlock(); } }");
 					replaced.value++;
 				}
 			}
 		});
 		if (replaced.value == 0) {
-			PatcherLog.warning("0 replacements made locking method call " + attributes.get("method") + " in " + ctBehavior.getLongName());
+			PatcherLog.warn("0 replacements made locking method call " + attributes.get("method") + " in " + ctBehavior.getLongName());
 		}
 	}
 
@@ -1091,7 +1091,7 @@ public class Patches {
 			@Override
 			public void edit(MethodCall methodCall) throws CannotCompileException {
 				if ((className == null || methodCall.getClassName().equals(className)) && (method.isEmpty() || methodCall.getMethodName().equals(method)) && (index == -1 || currentIndex++ == index)) {
-					PatcherLog.fine("Replaced " + methodCall.getMethodName() + " from " + ctBehavior);
+					PatcherLog.trace("Replaced " + methodCall.getMethodName() + " from " + ctBehavior);
 					methodCall.replace("synchronized(" + field + ") { $_ =  $0.$proceed($$); }");
 					replaced.value++;
 				}
@@ -1099,7 +1099,7 @@ public class Patches {
 		});
 
 		if (replaced.value == 0) {
-			PatcherLog.warning("0 replacements made synchronizing method call " + attributes.get("method") + " in " + ctBehavior.getLongName());
+			PatcherLog.warn("0 replacements made synchronizing method call " + attributes.get("method") + " in " + ctBehavior.getLongName());
 		}
 	}
 
@@ -1129,9 +1129,9 @@ public class Patches {
 				}
 			}
 			if (synchronized_ == 0) {
-				PatcherLog.severe("Nothing synchronized - did you forget the 'static' attribute?");
+				PatcherLog.error("Nothing synchronized - did you forget the 'static' attribute?");
 			} else {
-				PatcherLog.fine("Synchronized " + synchronized_ + " methods in " + ((CtClass) o).getName());
+				PatcherLog.trace("Synchronized " + synchronized_ + " methods in " + ((CtClass) o).getName());
 			}
 		}
 	}
@@ -1145,7 +1145,7 @@ public class Patches {
 		if (field == null) {
 			int currentModifiers = ctMethod.getModifiers();
 			if (Modifier.isSynchronized(currentModifiers)) {
-				PatcherLog.warning("Method: " + ctMethod.getLongName() + " is already synchronized");
+				PatcherLog.warn("Method: " + ctMethod.getLongName() + " is already synchronized");
 			} else {
 				ctMethod.setModifiers(currentModifiers | Modifier.SYNCHRONIZED);
 			}
@@ -1192,7 +1192,7 @@ public class Patches {
 		if (exceptionType == null) {
 			exceptionType = "java.lang.Throwable";
 		}
-		PatcherLog.fine("Ignoring " + exceptionType + " in " + ctMethod + ", returning with " + returnCode);
+		PatcherLog.trace("Ignoring " + exceptionType + " in " + ctMethod + ", returning with " + returnCode);
 		ctMethod.addCatch("{ " + returnCode + '}', classPool.get(exceptionType));
 	}
 
@@ -1251,7 +1251,7 @@ public class Patches {
 			}
 		}
 		methodInfo.rebuildStackMapIf6(ctClass.getClassPool(), ctClass.getClassFile2());
-		PatcherLog.fine("Replaced " + done + " lock/unlock calls.");
+		PatcherLog.trace("Replaced " + done + " lock/unlock calls.");
 	}
 
 	private static class ExceptionsArentForControlFlow extends RuntimeException {

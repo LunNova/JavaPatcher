@@ -75,7 +75,7 @@ public class MethodDescription {
 				methodString = methodString.replace('.', '/');
 				return new MethodDescription(clazz, methodName, methodString.substring(methodString.indexOf('(')));
 			} catch (Exception e) {
-				PatcherLog.severe("Failed to parse " + methodString, e);
+				PatcherLog.error("Failed to parse " + methodString, e);
 			}
 		}
 		return new MethodDescription(clazz, methodString, "", "");
@@ -160,7 +160,7 @@ public class MethodDescription {
 			}
 		}
 		if (isExact()) {
-			PatcherLog.warning("Failed to find exact match for " + this.getMCPName() + ", trying to find similar methods.");
+			PatcherLog.warn("Failed to find exact match for " + this.getMCPName() + ", trying to find similar methods.");
 		}
 		if (possible != null) {
 			return possible;

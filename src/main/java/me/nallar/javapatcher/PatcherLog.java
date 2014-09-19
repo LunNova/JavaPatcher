@@ -1,73 +1,53 @@
 package me.nallar.javapatcher;
 
-import java.util.logging.*;
+import org.apache.logging.log4j.Level;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
 
 /**
  * For internal use only, used to Log patcher errors/warnings/info.
  */
 @SuppressWarnings("UnusedDeclaration")
-public enum PatcherLog {
-	;
-	public static final Logger LOGGER = Logger.getLogger("JavaPatcher");
+public class PatcherLog {
+	/*
+	 * This class might get classloaded twice under different classloaders. Don't do anything important in a static {} block.
+	 */
+	public static final Logger LOGGER = LogManager.getLogger("JavaPatcher");
 
-	static {
-		LOGGER.setLevel(Level.INFO);
+	public static void error(String msg) {
+		LOGGER.error(msg);
 	}
 
-	public static void severe(String msg) {
-		severe(msg, null);
-	}
-
-	public static void warning(String msg) {
-		warning(msg, null);
+	public static void warn(String msg) {
+		LOGGER.warn(msg);
 	}
 
 	public static void info(String msg) {
-		info(msg, null);
+		LOGGER.info(msg);
 	}
 
-	public static void config(String msg) {
-		config(msg, null);
+	public static void trace(String msg) {
+		LOGGER.trace(msg);
 	}
 
-	public static void fine(String msg) {
-		fine(msg, null);
+	public static void error(String msg, Throwable t) {
+		LOGGER.log(Level.ERROR, msg, t);
 	}
 
-	public static void finer(String msg) {
-		finer(msg, null);
-	}
-
-	public static void finest(String msg) {
-		finest(msg, null);
-	}
-
-	public static void severe(String msg, Throwable t) {
-		LOGGER.log(Level.SEVERE, msg, t);
-	}
-
-	public static void warning(String msg, Throwable t) {
-		LOGGER.log(Level.WARNING, msg, t);
+	public static void warn(String msg, Throwable t) {
+		LOGGER.log(Level.WARN, msg, t);
 	}
 
 	public static void info(String msg, Throwable t) {
 		LOGGER.log(Level.INFO, msg, t);
 	}
 
-	public static void config(String msg, Throwable t) {
-		LOGGER.log(Level.CONFIG, msg, t);
+	public static void trace(String msg, Throwable t) {
+		LOGGER.log(Level.TRACE, msg, t);
 	}
 
-	public static void fine(String msg, Throwable t) {
-		LOGGER.log(Level.FINE, msg, t);
-	}
-
-	public static void finer(String msg, Throwable t) {
-		LOGGER.log(Level.FINER, msg, t);
-	}
-
-	public static void finest(String msg, Throwable t) {
-		LOGGER.log(Level.FINEST, msg, t);
+	public static String classString(Object o) {
+		return "c " + o.getClass().getName() + ' ';
 	}
 
 	public static void log(Level level, Throwable throwable, String s) {

@@ -38,6 +38,7 @@ configurations {
 }
 
 dependencies {
+    provided 'org.apache.logging.log4j:log4j-core:2.0.2'
     provided 'com.google.guava:guava:18.0'
     provided 'org.javassist:javassist:3.18.2-GA'
     compile 'org.json:json:20090211'

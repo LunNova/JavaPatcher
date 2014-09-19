@@ -92,7 +92,7 @@ enum DomUtil {
 		} catch (ParserConfigurationException e) {
 			//This exception is thrown, and no shorthand way of getting a DocumentBuilder without it.
 			//Should not be thrown, as we do not do anything to the DocumentBuilderFactory.
-			PatcherLog.severe("Java was bad, this shouldn't happen. DocBuilder instantiation via default docBuilderFactory failed", e);
+			PatcherLog.error("Java was bad, this shouldn't happen. DocBuilder instantiation via default docBuilderFactory failed", e);
 		}
 		return null;
 	}

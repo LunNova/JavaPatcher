@@ -70,7 +70,7 @@ public class Patcher {
 				if (annotation instanceof Patch) {
 					PatchMethodDescriptor patchMethodDescriptor = new PatchMethodDescriptor(method, (Patch) annotation);
 					if (patchMethods.put(patchMethodDescriptor.name, patchMethodDescriptor) != null) {
-						PatcherLog.warning("Duplicate @Patch method with name " + patchMethodDescriptor.name);
+						PatcherLog.warn("Duplicate @Patch method with name " + patchMethodDescriptor.name);
 					}
 				}
 			}
@@ -80,7 +80,7 @@ public class Patcher {
 		try {
 			patchClassInstance = patchesClass.getDeclaredConstructors()[0].newInstance(classPool, mappings);
 		} catch (Exception e) {
-			PatcherLog.severe("Failed to instantiate patch class", e);
+			PatcherLog.error("Failed to instantiate patch class", e);
 		}
 	}
 
@@ -164,6 +164,16 @@ public class Patcher {
 		return originalBytes;
 	}
 
+	/**
+	 * Writes debug info about this patcher to the debug logger
+	 */
+	public void logDebugInfo() {
+		for (PatchGroup patchGroup : classToPatchGroup.values()) {
+			PatcherLog.warn("");
+		}
+
+	}
+
 	private PatchGroup getPatchGroup(String name) {
 		return classToPatchGroup.get(name);
 	}
@@ -232,9 +242,9 @@ public class Patcher {
 			Map<String, String> attributes = patchDescriptor.getAttributes();
 			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
 			attributesClean.remove("code");
-			PatcherLog.fine("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
+			PatcherLog.trace("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
 			if (requiredAttributes != null && !attributes.keySet().containsAll(requiredAttributes)) {
-				PatcherLog.severe("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
+				PatcherLog.error("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
 				return null;
 			}
 			if ("^all^".equals(methods)) {
@@ -258,7 +268,7 @@ public class Patcher {
 			} else if ("^static^".equals(methods)) {
 				CtConstructor ctBehavior = ctClass.getClassInitializer();
 				if (ctBehavior == null) {
-					PatcherLog.severe("No static initializer found patching " + ctClass.getName() + " with " + toString());
+					PatcherLog.error("No static initializer found patching " + ctClass.getName() + " with " + toString());
 				} else {
 					run(ctBehavior, attributes, patchClassInstance);
 				}
@@ -270,7 +280,7 @@ public class Patcher {
 						ctMethod = methodDescription.inClass(ctClass);
 					} catch (Throwable t) {
 						if (!attributes.containsKey("allowMissing")) {
-							PatcherLog.warning("", t);
+							PatcherLog.warn("", t);
 						}
 						continue;
 					}
@@ -292,9 +302,9 @@ public class Patcher {
 					t = t.getCause();
 				}
 				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
-					PatcherLog.severe("Code: " + attributes.get("code"));
+					PatcherLog.error("Code: " + attributes.get("code"));
 				}
-				PatcherLog.severe("Error patching " + ctClass.getName() + " with " + toString(), t);
+				PatcherLog.error("Error patching " + ctClass.getName() + " with " + toString(), t);
 				return null;
 			}
 		}
@@ -311,9 +321,9 @@ public class Patcher {
 					t = t.getCause();
 				}
 				if (t instanceof CannotCompileException && attributes.containsKey("code")) {
-					PatcherLog.severe("Code: " + attributes.get("code"));
+					PatcherLog.error("Code: " + attributes.get("code"));
 				}
-				PatcherLog.severe("Error patching " + ctBehavior.getName() + " in " + ctBehavior.getDeclaringClass().getName() + " with " + toString(), t);
+				PatcherLog.error("Error patching " + ctBehavior.getName() + " in " + ctBehavior.getDeclaringClass().getName() + " with " + toString(), t);
 				return null;
 			}
 		}
@@ -352,7 +362,7 @@ public class Patcher {
 				}
 				PatchGroup other = classToPatchGroup.get(classPatchDescriptor.name);
 				if (other != null) {
-					PatcherLog.severe("Adding class " + classPatchDescriptor.name + " in patch group " + name + " to patch group with different preSrg setting " + other.name);
+					PatcherLog.error("Adding class " + classPatchDescriptor.name + " in patch group " + name + " to patch group with different preSrg setting " + other.name);
 				}
 				(other == null ? this : other).addClassPatchDescriptor(classPatchDescriptor);
 			}
@@ -412,7 +422,7 @@ public class Patcher {
 				try {
 					Files.write(bytes, file);
 				} catch (IOException e) {
-					PatcherLog.severe("Failed to save patched bytes for " + name, e);
+					PatcherLog.error("Failed to save patched bytes for " + name, e);
 				}
 			}
 		}
@@ -429,14 +439,14 @@ public class Patcher {
 					saveByteCode(bytes, name);
 					return bytes;
 				} catch (Throwable t) {
-					PatcherLog.severe("Failed to patch " + name + " in patch group " + name + '.', t);
+					PatcherLog.error("Failed to patch " + name + " in patch group " + name + '.', t);
 					return originalBytes;
 				}
 			}
 			runPatchesIfNeeded();
 			bytes = patchedBytes.get(name);
 			if (bytes == null) {
-				PatcherLog.severe("Got no patched bytes for " + name);
+				PatcherLog.error("Got no patched bytes for " + name);
 				return originalBytes;
 			}
 			return bytes;
@@ -454,19 +464,19 @@ public class Patcher {
 						patchedClasses.add(classPatchDescriptor.runPatches());
 					} catch (NotFoundException e) {
 						if (e.getMessage().contains(classPatchDescriptor.name)) {
-							PatcherLog.warning("Skipping patch for " + classPatchDescriptor.name + ", not found.");
+							PatcherLog.warn("Skipping patch for " + classPatchDescriptor.name + ", not found.");
 						} else {
 							throw e;
 						}
 					}
 				} catch (Throwable t) {
-					PatcherLog.severe("Failed to patch " + classPatchDescriptor.name + " in patch group " + name + '.', t);
+					PatcherLog.error("Failed to patch " + classPatchDescriptor.name + " in patch group " + name + '.', t);
 				}
 			}
 			for (CtClass ctClass : patchedClasses) {
 				String className = ctClass.getName();
 				if (!ctClass.isModified()) {
-					PatcherLog.severe("Failed to get patched bytes for " + className + " as it was never modified in patch group " + name + '.');
+					PatcherLog.error("Failed to get patched bytes for " + className + " as it was never modified in patch group " + name + '.');
 					continue;
 				}
 				try {
@@ -474,7 +484,7 @@ public class Patcher {
 					patchedBytes.put(className, byteCode);
 					saveByteCode(byteCode, className);
 				} catch (Throwable t) {
-					PatcherLog.severe("Failed to get patched bytes for " + className + " in patch group " + name + '.', t);
+					PatcherLog.error("Failed to get patched bytes for " + className + " in patch group " + name + '.', t);
 				}
 			}
 		}
@@ -525,13 +535,13 @@ public class Patcher {
 								int parameterIndex = Integer.valueOf(field.substring(1)) - 1;
 								if (parameterIndex >= parameterList.size()) {
 									if (!parameterList.isEmpty()) {
-										PatcherLog.severe("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + Joiner.on(',').join(parameterList));
+										PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + Joiner.on(',').join(parameterList));
 									}
 									break;
 								}
 								type = parameterList.get(parameterIndex);
 								if (type == null) {
-									PatcherLog.severe("Can not obfuscate parameter field " + patchDescriptor.get("field") + " automatically as this parameter does not have a single type across the methods used in this patch.");
+									PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + " automatically as this parameter does not have a single type across the methods used in this patch.");
 									break;
 								}
 								prefix = field + '.';
