@@ -370,7 +370,11 @@ public class Patcher {
 
 		@Override
 		public String toString() {
-			return "name: " + name + "\tnumber of patches: " + patches.size();
+			StringBuilder sb = new StringBuilder("name: " + name + "\tnumber of patches: " + patches.size() + " patches:\n");
+			for (ClassPatchDescriptor classPatchDescriptor : patches.values()) {
+				sb.append(classPatchDescriptor.name).append('\n');
+			}
+			return sb.toString();
 		}
 
 		private void addClassPatchDescriptor(ClassPatchDescriptor classPatchDescriptor) {
