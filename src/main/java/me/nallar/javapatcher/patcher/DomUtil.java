@@ -132,6 +132,9 @@ enum DomUtil {
 				keys = jo.keys();
 				while (keys.hasNext()) {
 					key = keys.next();
+					if ("target".equals(key)) {
+						continue;
+					}
 					value = jo.opt(key);
 					if (!(value instanceof JSONObject)) {
 						if ("".equals(value)) {
