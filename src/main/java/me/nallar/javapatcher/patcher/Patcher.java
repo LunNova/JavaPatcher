@@ -130,6 +130,20 @@ public class Patcher {
 	}
 
 	/**
+	 * @return The Mappings
+	 */
+	public Mappings getMappings() {
+		return mappings;
+	}
+
+	/**
+	 * @return The ClassPool
+	 */
+	public ClassPool getClassPool() {
+		return classPool;
+	}
+
+	/**
 	 * Returns whether the given class will be patched
 	 *
 	 * @param className Name of the class to check
