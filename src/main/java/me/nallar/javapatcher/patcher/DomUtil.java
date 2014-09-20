@@ -136,7 +136,7 @@ enum DomUtil {
 						continue;
 					}
 					value = jo.opt(key);
-					if (!(value instanceof JSONObject)) {
+					if (!(value instanceof JSONObject) && !(value instanceof JSONArray)) {
 						if ("".equals(value)) {
 							sb.append(' ').append(key).append("=\"true\"");
 						} else {
