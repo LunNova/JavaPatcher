@@ -224,7 +224,7 @@ public class Patcher {
 		private PatchMethodDescriptor(Method method, Patch patch) {
 			String name = patch.name();
 			if (Arrays.asList(method.getParameterTypes()).contains(Map.class)) {
-				this.requiredAttributes = Lists.newArrayList(Splitter.on(",").trimResults().split(patch.requiredAttributes()));
+				this.requiredAttributes = Lists.newArrayList(Splitter.on(",").trimResults().omitEmptyStrings().split(patch.requiredAttributes()));
 			} else {
 				this.requiredAttributes = null;
 			}
@@ -243,7 +243,7 @@ public class Patcher {
 			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
 			attributesClean.remove("code");
 			PatcherLog.trace("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
-			if (requiredAttributes != null && !attributes.keySet().containsAll(requiredAttributes)) {
+			if (requiredAttributes != null && !requiredAttributes.isEmpty() && !attributes.keySet().containsAll(requiredAttributes)) {
 				PatcherLog.error("Missing required attributes " + requiredAttributes.toString() + " when patching " + ctClass.getName());
 				return null;
 			}
