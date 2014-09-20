@@ -106,7 +106,9 @@ enum DomUtil {
 		m.appendTail(sb);
 		json = sb.toString();
 		try {
-			return toString(new JSONObject(json), null);
+			String xml = toString(new JSONObject(json), null);
+			PatcherLog.trace("Converted JSON to XML: " + xml);
+			return xml;
 		} catch (JSONException e) {
 			throw new IllegalArgumentException("Invalid json: " + json, e);
 		}
