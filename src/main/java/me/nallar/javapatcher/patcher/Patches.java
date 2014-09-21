@@ -916,7 +916,7 @@ public class Patches {
 	 * @param code       (optional) Initialiser, defaults to `new fieldClass();`
 	 */
 	@Patch(
-			requiredAttributes = "field,class"
+			requiredAttributes = "field,fieldClass"
 	)
 	public void addField(CtClass ctClass, Map<String, String> attributes) throws NotFoundException, CannotCompileException, IOException {
 		String field = attributes.get("field");
