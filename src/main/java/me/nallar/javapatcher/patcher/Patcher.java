@@ -584,6 +584,10 @@ public class Patcher {
 				CtClass ctClass = classPool.get(name);
 				for (PatchDescriptor patchDescriptor : patches) {
 					PatchMethodDescriptor patchMethodDescriptor = patchMethods.get(patchDescriptor.getPatch());
+                    if (patchMethodDescriptor == null) {
+                        PatcherLog.error("Couldn't find patch with name " + patchDescriptor.getPatch() + " when patching " + ctClass.getName());
+                        return ctClass;
+                    }
 					Object result = patchMethodDescriptor.run(patchDescriptor, ctClass, patchClassInstance);
 					if (result instanceof CtClass) {
 						ctClass = (CtClass) result;
