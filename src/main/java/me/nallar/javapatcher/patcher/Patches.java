@@ -305,7 +305,7 @@ public class Patches {
 			ctBehavior = (CtBehavior) o;
 			ctClass = ctBehavior.getDeclaringClass();
 		}
-		String ctFieldClass = attributes.get("fieldClass");
+		String ctFieldClass = attributes.get("classContainingField");
 		if (ctFieldClass != null) {
 			if (ctClass == o) {
 				PatcherLog.warn("Must set methods to run on if using fieldClass.");
