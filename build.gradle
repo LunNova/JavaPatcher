@@ -23,38 +23,40 @@ ext.commit = System.getenv("GIT_COMMIT") ?: 'unknown'
 
 // Source compiler configuration
 tasks.withType(JavaCompile) {
-    options.compilerArgs += [ '-Xlint:all', '-Xlint:-path' ]
-    options.deprecation = true
-    options.encoding = 'utf8'
+	options.compilerArgs += ['-Xlint:all', '-Xlint:-path']
+	options.deprecation = true
+	options.encoding = 'utf8'
 }
 
 repositories {
-    mavenCentral()
+	mavenCentral()
 }
 
 configurations {
-    provided
-    compile.extendsFrom provided
+	provided
+	compile.extendsFrom provided
 }
 
 dependencies {
-    provided 'org.apache.logging.log4j:log4j-core:2.0.2'
-    provided 'com.google.guava:guava:18.0'
-    provided 'org.javassist:javassist:3.19.0-GA'
+	provided 'org.apache.logging.log4j:log4j-core:2.0.2'
+	provided 'com.google.guava:guava:18.0'
+	provided 'org.javassist:javassist:3.19.0-GA'
 	provided 'org.projectlombok:lombok:1.16.4'
-    compile 'org.json:json:20090211'
+	compile 'org.json:json:20090211'
 }
 
 jar {
-    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-    from((configurations.runtime - configurations.provided).filter{it.exists()}.collect { it.isDirectory() ? it : zipTree(it) }) {
-        exclude "META-INF/**"
-    }
+	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+	from((configurations.runtime - configurations.provided).filter { it.exists() }.collect {
+		it.isDirectory() ? it : zipTree(it)
+	}) {
+		exclude "META-INF/**"
+	}
 }
 
 jar.manifest.mainAttributes(
-        "Built-By": System.properties['user.name'],
-        "Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
-        "Implementation-Title": name,
-        "Implementation-Version": version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
-        "Implementation-Vendor": url)
+	"Built-By": System.properties['user.name'],
+	"Created-By": System.properties['java.vm.version'] + " (" + System.properties['java.vm.vendor'] + ")",
+	"Implementation-Title": name,
+	"Implementation-Version": version + "+" + ciSystem + "-b" + buildNumber + ".git-" + commit,
+	"Implementation-Vendor": url)
