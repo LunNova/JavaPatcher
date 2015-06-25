@@ -3,8 +3,11 @@ package me.nallar.javapatcher.patcher;
 import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
 import com.google.common.io.Files;
 import javassist.*;
+import lombok.val;
 import me.nallar.javapatcher.PatcherLog;
 import me.nallar.javapatcher.mappings.*;
 import org.w3c.dom.Document;
@@ -25,7 +28,8 @@ public class Patcher {
 	private final ClassPool classPool;
 	private final Mappings mappings;
 	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<>();
-	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<>();
+	private final Multimap<String, ClassPatchDescriptor> patches = MultimapBuilder.hashKeys().arrayListValues().build();
+	private final Map<String, byte[]> patchedBytes = new HashMap<>();
 	private Object patchClassInstance;
 
 	/**
@@ -113,7 +117,7 @@ public class Patcher {
 		List<Element> patchGroupElements = DomUtil.children(document.getDocumentElement());
 		for (Element patchGroupElement : patchGroupElements) {
 			// TODO - rework this. Side-effect of object creation makes this look redundant when it isn't
-			createPatchGroup(patchGroupElement);
+			loadPatchGroup(patchGroupElement);
 		}
 	}
 
@@ -138,7 +142,7 @@ public class Patcher {
 	 * @return Whether a patch exists for that class
 	 */
 	public boolean willPatch(String className) {
-		return getPatchGroup(className) != null;
+		return !patches.get(className).isEmpty();
 	}
 
 	/**
@@ -159,25 +163,51 @@ public class Patcher {
 	 * @return Returns patched class if needed, else returns original class
 	 */
 	public synchronized byte[] patch(String className, byte[] originalBytes) {
-		PatchGroup patchGroup = getPatchGroup(className);
-		if (patchGroup != null) {
-			return patchGroup.getClassBytes(className, originalBytes);
+		byte[] bytes = patchedBytes.get(className);
+		if (bytes != null) {
+			return bytes;
 		}
-		return originalBytes;
+		val patches = this.patches.get(className);
+		if (patches.isEmpty()) {
+			return originalBytes;
+		}
+		try {
+			CtClass ctClass = classPool.get(className);
+			for (val classPatchDescriptor : patches) {
+				ctClass = classPatchDescriptor.runPatches(ctClass);
+			}
+			bytes = ctClass.toBytecode();
+			patchedBytes.put(className, bytes);
+			saveByteCode(bytes, className);
+			return bytes;
+		} catch (Throwable t) {
+			PatcherLog.error("Failed to patch " + className + " in patch group " + className + '.', t);
+			return originalBytes;
+		}
 	}
 
 	/**
 	 * Writes debug info about this patcher to the debug logger
 	 */
 	public void logDebugInfo() {
-		PatcherLog.info("Logging Patcher debug info of " + classToPatchGroup.size() + " patch groups");
-		for (PatchGroup patchGroup : classToPatchGroup.values()) {
-			PatcherLog.info(patchGroup.toString());
+		PatcherLog.info("Logging Patcher debug info of " + patches.size() + " class patches");
+		for (ClassPatchDescriptor classPatch : patches.values()) {
+			PatcherLog.info(classPatch.toString());
 		}
 	}
 
-	private PatchGroup getPatchGroup(String name) {
-		return classToPatchGroup.get(name);
+	private static void saveByteCode(byte[] bytes, String name) {
+		if (!debugPatchedOutput.isEmpty()) {
+			name = name.replace('.', '/') + ".class";
+			File file = new File(debugPatchedOutput + '/' + name);
+			//noinspection ResultOfMethodCallIgnored
+			file.getParentFile().mkdirs();
+			try {
+				Files.write(bytes, file);
+			} catch (IOException e) {
+				PatcherLog.error("Failed to save patched bytes for " + name, e);
+			}
+		}
 	}
 
 	private static class PatchDescriptor {
@@ -373,225 +403,107 @@ public class Patcher {
 		}
 	}
 
-	private PatchGroup createPatchGroup(Element e) {
+	private void loadPatchGroup(Element e) {
 		Map<String, String> attributes = DomUtil.getAttributes(e);
 		String requiredProperty = attributes.get("requiredProperty");
 		if (requiredProperty != null && !requiredProperty.isEmpty() && !Boolean.getBoolean(requiredProperty)) {
 			// Required property attribute isn't set as system property
-			return null;
+			return;
 		}
 		obfuscateAttributesAndTextContent(e);
-		return new PatchGroup(e.getTagName(), attributes, DomUtil.children(e));
+		val patchElements = DomUtil.children(e);
+		for (Element classElement : patchElements) {
+			ClassPatchDescriptor classPatchDescriptor;
+			try {
+				classPatchDescriptor = new ClassPatchDescriptor(classElement);
+			} catch (Throwable t) {
+				throw new RuntimeException("Failed to create class patch for " + classElement.getAttribute("id"), t);
+			}
+			patches.put(classPatchDescriptor.name, classPatchDescriptor);
+		}
 	}
 
-	private class PatchGroup {
+	public class ClassPatchDescriptor {
 		public final String name;
-		public final boolean onDemand;
-		public final ClassPool classPool;
-		public final Mappings mappings;
-		private final Map<String, ClassPatchDescriptor> patches;
-		private final Map<String, byte[]> patchedBytes = new HashMap<>();
-		private final List<ClassPatchDescriptor> classPatchDescriptors = new ArrayList<>();
-		private boolean ranPatches = false;
+		public final List<PatchDescriptor> patches = new ArrayList<>();
+		private final Map<String, String> attributes;
 
-		private PatchGroup(String name, Map<String, String> attributes, List<Element> patchElements) {
-			this.name = name;
-			classPool = Patcher.this.classPool;
-			mappings = Patcher.this.mappings;
-			onDemand = !attributes.containsKey("onDemand") || attributes.get("onDemand").toLowerCase().equals("true");
-			patches = onDemand ? new HashMap<String, ClassPatchDescriptor>() : null;
-
-			for (Element classElement : patchElements) {
-				ClassPatchDescriptor classPatchDescriptor;
-				try {
-					classPatchDescriptor = new ClassPatchDescriptor(classElement);
-				} catch (Throwable t) {
-					throw new RuntimeException("Failed to create class patch for " + classElement.getAttribute("id"), t);
+		private ClassPatchDescriptor(Element element) {
+			attributes = DomUtil.getAttributes(element);
+			ClassDescription deobfuscatedClass = new ClassDescription(attributes.get("id"));
+			ClassDescription obfuscatedClass = mappings.map(deobfuscatedClass);
+			name = obfuscatedClass == null ? deobfuscatedClass.name : obfuscatedClass.name;
+			for (Element patchElement : DomUtil.children(element)) {
+				PatchDescriptor patchDescriptor = new PatchDescriptor(patchElement);
+				patches.add(patchDescriptor);
+				List<MethodDescription> methodDescriptionList = MethodDescription.fromListString(deobfuscatedClass.name, patchDescriptor.getMethods());
+				if (!patchDescriptor.getMethods().isEmpty()) {
+					patchDescriptor.set("deobf", methodDescriptionList.get(0).getShortName());
+					patchDescriptor.setMethods(MethodDescription.toListString(mappings.map(methodDescriptionList)));
 				}
-				PatchGroup other = classToPatchGroup.get(classPatchDescriptor.name);
-				if (other != null) {
-					PatcherLog.error("Adding class " + classPatchDescriptor.name + " in patch group " + name + " to patch group with different preSrg setting " + other.name);
-				}
-				(other == null ? this : other).addClassPatchDescriptor(classPatchDescriptor);
-			}
-		}
-
-		@Override
-		public String toString() {
-			StringBuilder sb = new StringBuilder("name: " + name + "\tnumber of patches: " + patches.size() + " patches:\n");
-			for (ClassPatchDescriptor classPatchDescriptor : patches.values()) {
-				sb.append(classPatchDescriptor.name).append('\n');
-			}
-			return sb.toString();
-		}
-
-		private void addClassPatchDescriptor(ClassPatchDescriptor classPatchDescriptor) {
-			classToPatchGroup.put(classPatchDescriptor.name, this);
-			classPatchDescriptors.add(classPatchDescriptor);
-			if (onDemand && patches.put(classPatchDescriptor.name, classPatchDescriptor) != null) {
-				throw new Error("Duplicate class patch for " + classPatchDescriptor.name + ", but onDemand is set.");
-			}
-		}
-
-		private void saveByteCode(byte[] bytes, String name) {
-			if (!debugPatchedOutput.isEmpty()) {
-				name = name.replace('.', '/') + ".class";
-				File file = new File(debugPatchedOutput + '/' + name);
-				//noinspection ResultOfMethodCallIgnored
-				file.getParentFile().mkdirs();
-				try {
-					Files.write(bytes, file);
-				} catch (IOException e) {
-					PatcherLog.error("Failed to save patched bytes for " + name, e);
-				}
-			}
-		}
-
-		public byte[] getClassBytes(String name, byte[] originalBytes) {
-			byte[] bytes = patchedBytes.get(name);
-			if (bytes != null) {
-				return bytes;
-			}
-			if (onDemand) {
-				try {
-					bytes = patches.get(name).runPatches().toBytecode();
-					patchedBytes.put(name, bytes);
-					saveByteCode(bytes, name);
-					return bytes;
-				} catch (Throwable t) {
-					PatcherLog.error("Failed to patch " + name + " in patch group " + name + '.', t);
-					return originalBytes;
-				}
-			}
-			runPatchesIfNeeded();
-			bytes = patchedBytes.get(name);
-			if (bytes == null) {
-				PatcherLog.error("Got no patched bytes for " + name);
-				return originalBytes;
-			}
-			return bytes;
-		}
-
-		private void runPatchesIfNeeded() {
-			if (ranPatches) {
-				return;
-			}
-			ranPatches = true;
-			Set<CtClass> patchedClasses = new HashSet<>();
-			for (ClassPatchDescriptor classPatchDescriptor : classPatchDescriptors) {
-				try {
-					try {
-						patchedClasses.add(classPatchDescriptor.runPatches());
-					} catch (NotFoundException e) {
-						if (e.getMessage().contains(classPatchDescriptor.name)) {
-							PatcherLog.warn("Skipping patch for " + classPatchDescriptor.name + ", not found.");
-						} else {
-							throw e;
-						}
+				String field = patchDescriptor.get("field"), prefix = "";
+				if (field != null && !field.isEmpty()) {
+					if (field.startsWith("this.")) {
+						field = field.substring("this.".length());
+						prefix = "this.";
 					}
-				} catch (Throwable t) {
-					PatcherLog.error("Failed to patch " + classPatchDescriptor.name + " in patch group " + name + '.', t);
-				}
-			}
-			for (CtClass ctClass : patchedClasses) {
-				String className = ctClass.getName();
-				if (!ctClass.isModified()) {
-					PatcherLog.error("Failed to get patched bytes for " + className + " as it was never modified in patch group " + name + '.');
-					continue;
-				}
-				try {
-					byte[] byteCode = ctClass.toBytecode();
-					patchedBytes.put(className, byteCode);
-					saveByteCode(byteCode, className);
-				} catch (Throwable t) {
-					PatcherLog.error("Failed to get patched bytes for " + className + " in patch group " + name + '.', t);
-				}
-			}
-		}
-
-		private class ClassPatchDescriptor {
-			public final String name;
-			public final List<PatchDescriptor> patches = new ArrayList<>();
-			private final Map<String, String> attributes;
-
-			private ClassPatchDescriptor(Element element) {
-				attributes = DomUtil.getAttributes(element);
-				ClassDescription deobfuscatedClass = new ClassDescription(attributes.get("id"));
-				ClassDescription obfuscatedClass = mappings.map(deobfuscatedClass);
-				name = obfuscatedClass == null ? deobfuscatedClass.name : obfuscatedClass.name;
-				for (Element patchElement : DomUtil.children(element)) {
-					PatchDescriptor patchDescriptor = new PatchDescriptor(patchElement);
-					patches.add(patchDescriptor);
-					List<MethodDescription> methodDescriptionList = MethodDescription.fromListString(deobfuscatedClass.name, patchDescriptor.getMethods());
-					if (!patchDescriptor.getMethods().isEmpty()) {
-						patchDescriptor.set("deobf", methodDescriptionList.get(0).getShortName());
-						patchDescriptor.setMethods(MethodDescription.toListString(mappings.map(methodDescriptionList)));
-					}
-					String field = patchDescriptor.get("field"), prefix = "";
-					if (field != null && !field.isEmpty()) {
-						if (field.startsWith("this.")) {
-							field = field.substring("this.".length());
-							prefix = "this.";
-						}
-						String after = "", type = name;
-						if (field.indexOf('.') != -1) {
-							after = field.substring(field.indexOf('.'));
-							field = field.substring(0, field.indexOf('.'));
-							if (!field.isEmpty() && (field.charAt(0) == '$') && prefix.isEmpty()) {
-								ArrayList<String> parameterList = new ArrayList<>();
-								for (MethodDescription methodDescriptionOriginal : methodDescriptionList) {
-									MethodDescription methodDescription = mappings.unmap(mappings.map(methodDescriptionOriginal));
-									methodDescription = methodDescription == null ? methodDescriptionOriginal : methodDescription;
-									int i = 0;
-									for (String parameter : methodDescription.getParameterList()) {
-										if (parameterList.size() <= i) {
-											parameterList.add(parameter);
-										} else if (!parameterList.get(i).equals(parameter)) {
-											parameterList.set(i, null);
-										}
-										i++;
+					String after = "", type = name;
+					if (field.indexOf('.') != -1) {
+						after = field.substring(field.indexOf('.'));
+						field = field.substring(0, field.indexOf('.'));
+						if (!field.isEmpty() && (field.charAt(0) == '$') && prefix.isEmpty()) {
+							ArrayList<String> parameterList = new ArrayList<>();
+							for (MethodDescription methodDescriptionOriginal : methodDescriptionList) {
+								MethodDescription methodDescription = mappings.unmap(mappings.map(methodDescriptionOriginal));
+								methodDescription = methodDescription == null ? methodDescriptionOriginal : methodDescription;
+								int i = 0;
+								for (String parameter : methodDescription.getParameterList()) {
+									if (parameterList.size() <= i) {
+										parameterList.add(parameter);
+									} else if (!parameterList.get(i).equals(parameter)) {
+										parameterList.set(i, null);
 									}
+									i++;
 								}
-								int parameterIndex = Integer.valueOf(field.substring(1)) - 1;
-								if (parameterIndex >= parameterList.size()) {
-									if (!parameterList.isEmpty()) {
-										PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + Joiner.on(',').join(parameterList));
-									}
-									break;
-								}
-								type = parameterList.get(parameterIndex);
-								if (type == null) {
-									PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + " automatically as this parameter does not have a single type across the methods used in this patch.");
-									break;
-								}
-								prefix = field + '.';
-								field = after.substring(1);
-								after = "";
 							}
+							int parameterIndex = Integer.valueOf(field.substring(1)) - 1;
+							if (parameterIndex >= parameterList.size()) {
+								if (!parameterList.isEmpty()) {
+									PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + ", index: " + parameterIndex + " but parameter list is: " + Joiner.on(',').join(parameterList));
+								}
+								break;
+							}
+							type = parameterList.get(parameterIndex);
+							if (type == null) {
+								PatcherLog.error("Can not obfuscate parameter field " + patchDescriptor.get("field") + " automatically as this parameter does not have a single type across the methods used in this patch.");
+								break;
+							}
+							prefix = field + '.';
+							field = after.substring(1);
+							after = "";
 						}
-						FieldDescription obfuscatedField = mappings.map(new FieldDescription(type, field));
-						if (obfuscatedField != null) {
-							patchDescriptor.set("field", prefix + obfuscatedField.name + after);
-						}
+					}
+					FieldDescription obfuscatedField = mappings.map(new FieldDescription(type, field));
+					if (obfuscatedField != null) {
+						patchDescriptor.set("field", prefix + obfuscatedField.name + after);
 					}
 				}
 			}
+		}
 
-			public CtClass runPatches() throws NotFoundException {
-				CtClass ctClass = classPool.get(name);
-				for (PatchDescriptor patchDescriptor : patches) {
-					PatchMethodDescriptor patchMethodDescriptor = patchMethods.get(patchDescriptor.getPatch());
-					if (patchMethodDescriptor == null) {
-						PatcherLog.error("Couldn't find patch with name " + patchDescriptor.getPatch() + " when patching " + ctClass.getName());
-						return ctClass;
-					}
-					Object result = patchMethodDescriptor.run(patchDescriptor, ctClass, patchClassInstance);
-					if (result instanceof CtClass) {
-						ctClass = (CtClass) result;
-					}
+		public CtClass runPatches(CtClass ctClass) throws NotFoundException {
+			for (PatchDescriptor patchDescriptor : patches) {
+				PatchMethodDescriptor patchMethodDescriptor = patchMethods.get(patchDescriptor.getPatch());
+				if (patchMethodDescriptor == null) {
+					PatcherLog.error("Couldn't find patch with name " + patchDescriptor.getPatch() + " when patching " + ctClass.getName());
+					return ctClass;
 				}
-				return ctClass;
+				Object result = patchMethodDescriptor.run(patchDescriptor, ctClass, patchClassInstance);
+				if (result instanceof CtClass) {
+					ctClass = (CtClass) result;
+				}
 			}
+			return ctClass;
 		}
 	}
 }
