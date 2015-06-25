@@ -60,7 +60,7 @@ public class MethodDescription {
 	}
 
 	private static String getParameterList(Method method) {
-		List<Class<?>> parameterClasses = new ArrayList<Class<?>>(Arrays.asList(method.getParameterTypes()));
+		List<Class<?>> parameterClasses = new ArrayList<>(Arrays.asList(method.getParameterTypes()));
 		StringBuilder parameters = new StringBuilder();
 		for (Class<?> clazz : parameterClasses) {
 			parameters.append(getJVMName(clazz));
@@ -82,7 +82,7 @@ public class MethodDescription {
 	}
 
 	public static List<MethodDescription> fromListString(String clazz, String methodList) {
-		ArrayList<MethodDescription> methodDescriptions = new ArrayList<MethodDescription>();
+		ArrayList<MethodDescription> methodDescriptions = new ArrayList<>();
 		for (String methodString : Splitter.on(",").trimResults().split(methodList)) {
 			methodDescriptions.add(fromString(clazz, methodString));
 		}
@@ -132,12 +132,12 @@ public class MethodDescription {
 	@Override
 	public boolean equals(Object other) {
 		return this == other ||
-				(other instanceof MethodDescription &&
-						((MethodDescription) other).clazz.equals(this.clazz) &&
-						((MethodDescription) other).returnType.equals(this.returnType) &&
-						((MethodDescription) other).parameters.equals(this.parameters) &&
-						((MethodDescription) other).name.equals(this.name))
-				|| (other instanceof Method && new MethodDescription((Method) other).equals(this));
+			(other instanceof MethodDescription &&
+				((MethodDescription) other).clazz.equals(this.clazz) &&
+				((MethodDescription) other).returnType.equals(this.returnType) &&
+				((MethodDescription) other).parameters.equals(this.parameters) &&
+				((MethodDescription) other).name.equals(this.name))
+			|| (other instanceof Method && new MethodDescription((Method) other).equals(this));
 	}
 
 	boolean similar(Object other) {
@@ -183,7 +183,7 @@ public class MethodDescription {
 
 	public List<String> getParameterList() {
 		String parameters = this.parameters;
-		List<String> parameterList = new ArrayList<String>();
+		List<String> parameterList = new ArrayList<>();
 		while (!parameters.isEmpty()) {
 			String p = parameters.substring(0, 1);
 			parameters = parameters.substring(1);

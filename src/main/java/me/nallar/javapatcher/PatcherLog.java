@@ -7,7 +7,6 @@ import org.apache.logging.log4j.Logger;
 /**
  * For internal use only, used to Log patcher errors/warnings/info.
  */
-@SuppressWarnings("UnusedDeclaration")
 public class PatcherLog {
 	/*
 	 * This class might get classloaded twice under different classloaders. Don't do anything important in a static {} block.

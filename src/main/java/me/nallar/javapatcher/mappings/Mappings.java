@@ -14,7 +14,7 @@ public abstract class Mappings {
 	 */
 	@SuppressWarnings("unchecked")
 	public final <T> List<T> map(List<T> list) {
-		List<T> mappedThings = new ArrayList<T>();
+		List<T> mappedThings = new ArrayList<>();
 		for (Object thing : list) {
 			// TODO - cleaner way of doing this?
 			if (thing instanceof MethodDescription) {

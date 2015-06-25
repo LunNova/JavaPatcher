@@ -30,8 +30,8 @@ public class FieldDescription {
 	@Override
 	public boolean equals(Object other) {
 		return this == other || (other instanceof FieldDescription &&
-				((FieldDescription) other).className.equals(this.className) &&
-				((FieldDescription) other).name.equals(this.name));
+			((FieldDescription) other).className.equals(this.className) &&
+			((FieldDescription) other).name.equals(this.name));
 	}
 
 	@Override

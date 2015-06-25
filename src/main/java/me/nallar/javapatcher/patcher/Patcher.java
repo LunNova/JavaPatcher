@@ -4,19 +4,9 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Lists;
 import com.google.common.io.Files;
-import javassist.CannotCompileException;
-import javassist.ClassPool;
-import javassist.CtBehavior;
-import javassist.CtClass;
-import javassist.CtConstructor;
-import javassist.CtMethod;
-import javassist.NotFoundException;
+import javassist.*;
 import me.nallar.javapatcher.PatcherLog;
-import me.nallar.javapatcher.mappings.ClassDescription;
-import me.nallar.javapatcher.mappings.DefaultMappings;
-import me.nallar.javapatcher.mappings.FieldDescription;
-import me.nallar.javapatcher.mappings.Mappings;
-import me.nallar.javapatcher.mappings.MethodDescription;
+import me.nallar.javapatcher.mappings.*;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.xml.sax.SAXException;
@@ -34,8 +24,8 @@ public class Patcher {
 	private static final Splitter idSplitter = Splitter.on("  ").trimResults().omitEmptyStrings();
 	private final ClassPool classPool;
 	private final Mappings mappings;
-	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<String, PatchMethodDescriptor>();
-	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<String, PatchGroup>();
+	private final Map<String, PatchMethodDescriptor> patchMethods = new HashMap<>();
+	private final Map<String, PatchGroup> classToPatchGroup = new HashMap<>();
 	private Object patchClassInstance;
 
 	/**
@@ -114,9 +104,7 @@ public class Patcher {
 	public void readPatchesFromXmlString(String document) {
 		try {
 			readPatchesFromXmlDocument(DomUtil.readDocumentFromString(document));
-		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} catch (SAXException e) {
+		} catch (IOException | SAXException e) {
 			throw new RuntimeException(e);
 		}
 	}
@@ -254,7 +242,7 @@ public class Patcher {
 		public Object run(PatchDescriptor patchDescriptor, CtClass ctClass, Object patchClassInstance) {
 			String methods = patchDescriptor.getMethods();
 			Map<String, String> attributes = patchDescriptor.getAttributes();
-			Map<String, String> attributesClean = new HashMap<String, String>(attributes);
+			Map<String, String> attributesClean = new HashMap<>(attributes);
 			attributesClean.remove("code");
 			PatcherLog.trace("Patching " + ctClass.getName() + " with " + this.name + '(' + CollectionsUtil.mapToString(attributesClean) + ')' + (methods.isEmpty() ? "" : " {" + methods + '}'));
 			if (requiredAttributes != null && !requiredAttributes.isEmpty() && !attributes.keySet().containsAll(requiredAttributes)) {
@@ -263,7 +251,7 @@ public class Patcher {
 			}
 			if ("^all^".equals(methods)) {
 				patchDescriptor.set("silent", "true");
-				List<CtBehavior> ctBehaviors = new ArrayList<CtBehavior>();
+				List<CtBehavior> ctBehaviors = new ArrayList<>();
 				Collections.addAll(ctBehaviors, ctClass.getDeclaredMethods());
 				Collections.addAll(ctBehaviors, ctClass.getDeclaredConstructors());
 				CtBehavior initializer = ctClass.getClassInitializer();
@@ -402,8 +390,8 @@ public class Patcher {
 		public final ClassPool classPool;
 		public final Mappings mappings;
 		private final Map<String, ClassPatchDescriptor> patches;
-		private final Map<String, byte[]> patchedBytes = new HashMap<String, byte[]>();
-		private final List<ClassPatchDescriptor> classPatchDescriptors = new ArrayList<ClassPatchDescriptor>();
+		private final Map<String, byte[]> patchedBytes = new HashMap<>();
+		private final List<ClassPatchDescriptor> classPatchDescriptors = new ArrayList<>();
 		private boolean ranPatches = false;
 
 		private PatchGroup(String name, Map<String, String> attributes, List<Element> patchElements) {
@@ -489,7 +477,7 @@ public class Patcher {
 				return;
 			}
 			ranPatches = true;
-			Set<CtClass> patchedClasses = new HashSet<CtClass>();
+			Set<CtClass> patchedClasses = new HashSet<>();
 			for (ClassPatchDescriptor classPatchDescriptor : classPatchDescriptors) {
 				try {
 					try {
@@ -523,7 +511,7 @@ public class Patcher {
 
 		private class ClassPatchDescriptor {
 			public final String name;
-			public final List<PatchDescriptor> patches = new ArrayList<PatchDescriptor>();
+			public final List<PatchDescriptor> patches = new ArrayList<>();
 			private final Map<String, String> attributes;
 
 			private ClassPatchDescriptor(Element element) {
@@ -550,7 +538,7 @@ public class Patcher {
 							after = field.substring(field.indexOf('.'));
 							field = field.substring(0, field.indexOf('.'));
 							if (!field.isEmpty() && (field.charAt(0) == '$') && prefix.isEmpty()) {
-								ArrayList<String> parameterList = new ArrayList<String>();
+								ArrayList<String> parameterList = new ArrayList<>();
 								for (MethodDescription methodDescriptionOriginal : methodDescriptionList) {
 									MethodDescription methodDescription = mappings.unmap(mappings.map(methodDescriptionOriginal));
 									methodDescription = methodDescription == null ? methodDescriptionOriginal : methodDescription;

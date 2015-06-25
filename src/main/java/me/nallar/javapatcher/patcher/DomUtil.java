@@ -1,17 +1,11 @@
 package me.nallar.javapatcher.patcher;
 
 import com.google.common.io.CharStreams;
-import com.google.common.io.Closeables;
 import me.nallar.javapatcher.PatcherLog;
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.w3c.dom.Attr;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NamedNodeMap;
-import org.w3c.dom.Node;
-import org.w3c.dom.NodeList;
+import org.w3c.dom.*;
 import org.xml.sax.InputSource;
 import org.xml.sax.SAXException;
 
@@ -34,7 +28,7 @@ enum DomUtil {
 	 */
 	public static List<Element> children(Element parent) {
 		List<Node> nodes = nodeList(parent.getChildNodes());
-		ArrayList<Element> elements = new ArrayList<Element>(nodes.size());
+		ArrayList<Element> elements = new ArrayList<>(nodes.size());
 		for (Node node : nodes) {
 			if (node instanceof Element) {
 				elements.add((Element) node);
@@ -69,7 +63,7 @@ enum DomUtil {
 	 */
 	public static Map<String, String> getAttributes(Node node) {
 		NamedNodeMap attributeMap = node.getAttributes();
-		HashMap<String, String> attributes = new HashMap<String, String>(attributeMap.getLength());
+		HashMap<String, String> attributes = new HashMap<>(attributeMap.getLength());
 		for (int i = 0; i < attributeMap.getLength(); i++) {
 			Node attr = attributeMap.item(i);
 			if (attr instanceof Attr) {
@@ -214,8 +208,8 @@ enum DomUtil {
 			} else {
 				string = escapeStringForXml(object.toString());
 				return (tagName == null) ? '"' + string + '"' :
-						(string.length() == 0) ? '<' + tagName + "/>" :
-								'<' + tagName + '>' + string + "</" + tagName + '>';
+					(string.length() == 0) ? '<' + tagName + "/>" :
+						'<' + tagName + '>' + string + "</" + tagName + '>';
 			}
 		}
 	}
@@ -297,19 +291,10 @@ enum DomUtil {
 	}
 
 	public static String readInputStreamToString(InputStream inputStream) {
-		try {
-			InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+		try (InputStreamReader inputStreamReader = new InputStreamReader(inputStream)) {
 			return CharStreams.toString(inputStreamReader);
 		} catch (IOException e) {
-			throw new RuntimeException(e);
-		} finally {
-			if (inputStream != null) {
-				try {
-					Closeables.close(inputStream, true);
-				} catch (IOException impossible) {
-					throw new AssertionError(impossible);
-				}
-			}
+			throw Throw.sneaky(e);
 		}
 	}
 }
