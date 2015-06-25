@@ -28,13 +28,12 @@ enum DomUtil {
 	private final static Pattern stringMatcher = Pattern.compile("\"\"\"(.*?)\"\"\"", Pattern.DOTALL);
 
 	/**
-	 * Converts a NodeList of Nodes to a java List containing only the Elements from that list
+	 * Gets a List of the child elements of an element
 	 *
-	 * @param nodeList NodeList to convert
-	 * @return The converted List
+	 * @param parent Parent element
 	 */
-	public static List<Element> elementList(NodeList nodeList) {
-		List<Node> nodes = nodeList(nodeList);
+	public static List<Element> children(Element parent) {
+		List<Node> nodes = nodeList(parent.getChildNodes());
 		ArrayList<Element> elements = new ArrayList<Element>(nodes.size());
 		for (Node node : nodes) {
 			if (node instanceof Element) {
@@ -47,12 +46,19 @@ enum DomUtil {
 
 	/**
 	 * Converts a NodeList to a java List
-	 *
-	 * @param nodeList NodeList to convert
-	 * @return The converted List
 	 */
-	public static List<Node> nodeList(NodeList nodeList) {
-		return new NodeListWhichIsActuallyAList(nodeList);
+	public static List<Node> nodeList(final NodeList nodeList) {
+		return new AbstractList<Node>() {
+			@Override
+			public Node get(int index) {
+				return nodeList.item(index);
+			}
+
+			@Override
+			public int size() {
+				return nodeList.getLength();
+			}
+		};
 	}
 
 	/**
@@ -114,6 +120,7 @@ enum DomUtil {
 		}
 	}
 
+	@SuppressWarnings("unchecked")
 	static String toString(Object object, String tagName) throws JSONException {
 		StringBuilder sb = new StringBuilder();
 		int i;
@@ -303,24 +310,6 @@ enum DomUtil {
 					throw new AssertionError(impossible);
 				}
 			}
-		}
-	}
-
-	private static class NodeListWhichIsActuallyAList extends AbstractList<Node> implements List<Node> {
-		private final NodeList nodeList;
-
-		NodeListWhichIsActuallyAList(NodeList nodeList) {
-			this.nodeList = nodeList;
-		}
-
-		@Override
-		public Node get(int index) {
-			return nodeList.item(index);
-		}
-
-		@Override
-		public int size() {
-			return nodeList.getLength();
 		}
 	}
 }

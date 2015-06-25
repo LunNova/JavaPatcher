@@ -122,10 +122,10 @@ public class Patcher {
 	}
 
 	public void readPatchesFromXmlDocument(Document document) {
-		List<Element> patchGroupElements = DomUtil.elementList(document.getDocumentElement().getChildNodes());
+		List<Element> patchGroupElements = DomUtil.children(document.getDocumentElement());
 		for (Element patchGroupElement : patchGroupElements) {
 			// TODO - rework this. Side-effect of object creation makes this look redundant when it isn't
-			new PatchGroup(patchGroupElement);
+			createPatchGroup(patchGroupElement);
 		}
 	}
 
@@ -348,6 +348,54 @@ public class Patcher {
 		}
 	}
 
+	private void obfuscateAttributesAndTextContent(Element root) {
+		// TODO - reimplement environments?
+		/*
+		for (Element classElement : DomUtil.children(root.getChildNodes())) {
+			String env = classElement.getAttribute("env");
+			if (env != null && !env.isEmpty()) {
+				if (!env.equals(getEnv())) {
+					root.removeChild(classElement);
+				}
+			}
+		}
+		*/
+		for (Element element : DomUtil.children(root)) {
+			if (!DomUtil.children(element).isEmpty()) {
+				obfuscateAttributesAndTextContent(element);
+			} else if (element.getTextContent() != null && !element.getTextContent().isEmpty()) {
+				element.setTextContent(mappings.obfuscate(element.getTextContent()));
+			}
+			Map<String, String> attributes = DomUtil.getAttributes(element);
+			for (Map.Entry<String, String> attributeEntry : attributes.entrySet()) {
+				element.setAttribute(attributeEntry.getKey(), mappings.obfuscate(attributeEntry.getValue()));
+			}
+		}
+		for (Element element : DomUtil.children(root)) {
+			String id = element.getAttribute("id");
+			ArrayList<String> list = Lists.newArrayList(idSplitter.split(id));
+			if (list.size() > 1) {
+				for (String className : list) {
+					Element newClassElement = (Element) element.cloneNode(true);
+					newClassElement.setAttribute("id", className.trim());
+					element.getParentNode().insertBefore(newClassElement, element);
+				}
+				element.getParentNode().removeChild(element);
+			}
+		}
+	}
+
+	private PatchGroup createPatchGroup(Element e) {
+		Map<String, String> attributes = DomUtil.getAttributes(e);
+		String requiredProperty = attributes.get("requiredProperty");
+		if (requiredProperty != null && !requiredProperty.isEmpty() && !Boolean.getBoolean(requiredProperty)) {
+			// Required property attribute isn't set as system property
+			return null;
+		}
+		obfuscateAttributesAndTextContent(e);
+		return new PatchGroup(e.getTagName(), attributes, DomUtil.children(e));
+	}
+
 	private class PatchGroup {
 		public final String name;
 		public final boolean onDemand;
@@ -358,16 +406,14 @@ public class Patcher {
 		private final List<ClassPatchDescriptor> classPatchDescriptors = new ArrayList<ClassPatchDescriptor>();
 		private boolean ranPatches = false;
 
-		private PatchGroup(Element element) {
-			Map<String, String> attributes = DomUtil.getAttributes(element);
-			name = element.getTagName();
+		private PatchGroup(String name, Map<String, String> attributes, List<Element> patchElements) {
+			this.name = name;
 			classPool = Patcher.this.classPool;
 			mappings = Patcher.this.mappings;
-			obfuscateAttributesAndTextContent(element);
 			onDemand = !attributes.containsKey("onDemand") || attributes.get("onDemand").toLowerCase().equals("true");
 			patches = onDemand ? new HashMap<String, ClassPatchDescriptor>() : null;
 
-			for (Element classElement : DomUtil.elementList(element.getChildNodes())) {
+			for (Element classElement : patchElements) {
 				ClassPatchDescriptor classPatchDescriptor;
 				try {
 					classPatchDescriptor = new ClassPatchDescriptor(classElement);
@@ -396,43 +442,6 @@ public class Patcher {
 			classPatchDescriptors.add(classPatchDescriptor);
 			if (onDemand && patches.put(classPatchDescriptor.name, classPatchDescriptor) != null) {
 				throw new Error("Duplicate class patch for " + classPatchDescriptor.name + ", but onDemand is set.");
-			}
-		}
-
-		private void obfuscateAttributesAndTextContent(Element root) {
-			// TODO - reimplement environments?
-			/*
-			for (Element classElement : DomUtil.elementList(root.getChildNodes())) {
-				String env = classElement.getAttribute("env");
-				if (env != null && !env.isEmpty()) {
-					if (!env.equals(getEnv())) {
-						root.removeChild(classElement);
-					}
-				}
-			}
-			*/
-			for (Element element : DomUtil.elementList(root.getChildNodes())) {
-				if (!DomUtil.elementList(element.getChildNodes()).isEmpty()) {
-					obfuscateAttributesAndTextContent(element);
-				} else if (element.getTextContent() != null && !element.getTextContent().isEmpty()) {
-					element.setTextContent(mappings.obfuscate(element.getTextContent()));
-				}
-				Map<String, String> attributes = DomUtil.getAttributes(element);
-				for (Map.Entry<String, String> attributeEntry : attributes.entrySet()) {
-					element.setAttribute(attributeEntry.getKey(), mappings.obfuscate(attributeEntry.getValue()));
-				}
-			}
-			for (Element classElement : DomUtil.elementList(root.getChildNodes())) {
-				String id = classElement.getAttribute("id");
-				ArrayList<String> list = Lists.newArrayList(idSplitter.split(id));
-				if (list.size() > 1) {
-					for (String className : list) {
-						Element newClassElement = (Element) classElement.cloneNode(true);
-						newClassElement.setAttribute("id", className.trim());
-						classElement.getParentNode().insertBefore(newClassElement, classElement);
-					}
-					classElement.getParentNode().removeChild(classElement);
-				}
 			}
 		}
 
@@ -522,7 +531,7 @@ public class Patcher {
 				ClassDescription deobfuscatedClass = new ClassDescription(attributes.get("id"));
 				ClassDescription obfuscatedClass = mappings.map(deobfuscatedClass);
 				name = obfuscatedClass == null ? deobfuscatedClass.name : obfuscatedClass.name;
-				for (Element patchElement : DomUtil.elementList(element.getChildNodes())) {
+				for (Element patchElement : DomUtil.children(element)) {
 					PatchDescriptor patchDescriptor = new PatchDescriptor(patchElement);
 					patches.add(patchDescriptor);
 					List<MethodDescription> methodDescriptionList = MethodDescription.fromListString(deobfuscatedClass.name, patchDescriptor.getMethods());
