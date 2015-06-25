@@ -405,7 +405,7 @@ public class Patcher {
 
 	private void loadPatchGroup(Element e) {
 		Map<String, String> attributes = DomUtil.getAttributes(e);
-		String requiredProperty = attributes.get("requiredProperty");
+		String requiredProperty = attributes.get("requireProperty");
 		if (requiredProperty != null && !requiredProperty.isEmpty() && !Boolean.getBoolean(requiredProperty)) {
 			// Required property attribute isn't set as system property
 			return;
