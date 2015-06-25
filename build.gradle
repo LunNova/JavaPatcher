@@ -1,8 +1,8 @@
 apply plugin: 'java'
 apply plugin: 'maven'
 
-sourceCompatibility = '1.6'
-targetCompatibility = '1.6'
+sourceCompatibility = JavaVersion.VERSION_1_7
+targetCompatibility = JavaVersion.VERSION_1_7
 
 version = '1.1-SNAPSHOT'
 group = 'me.nallar'
@@ -40,7 +40,7 @@ configurations {
 dependencies {
     provided 'org.apache.logging.log4j:log4j-core:2.0.2'
     provided 'com.google.guava:guava:18.0'
-    provided 'org.javassist:javassist:3.18.2-GA'
+    provided 'org.javassist:javassist:3.19.0-GA'
     compile 'org.json:json:20090211'
 }
 
