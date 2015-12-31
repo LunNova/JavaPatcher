@@ -165,7 +165,7 @@ public class MethodDescription {
 		if (possible != null) {
 			return possible;
 		}
-		for (CtBehavior ctMethod : ctClass.getDeclaredMethods()) {
+		for (CtBehavior ctMethod : ctClass.getDeclaredBehaviors()) {
 			if (new MethodDescription(ctMethod).similar(this)) {
 				return ctMethod;
 			}
