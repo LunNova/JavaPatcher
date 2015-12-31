@@ -148,10 +148,10 @@ public class Patches {
 		}
 		if (fromClass != null) {
 			String fromMethod = attributes.get("fromMethod");
-			CtMethod replacingMethod = fromMethod == null ?
+			CtBehavior replacingMethod = fromMethod == null ?
 				classPool.get(fromClass).getDeclaredMethod(method.getName(), method.getParameterTypes())
 				: MethodDescription.fromString(fromClass, fromMethod).inClass(classPool.get(fromClass));
-			replaceMethod((CtMethod) method, replacingMethod);
+			replaceMethod((CtMethod) method, (CtMethod) replacingMethod);
 		} else if (code != null) {
 			method.setBody(code);
 		} else {

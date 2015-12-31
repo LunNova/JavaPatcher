@@ -307,16 +307,16 @@ public class Patcher {
 			} else {
 				List<MethodDescription> methodDescriptions = MethodDescription.fromListString(ctClass.getName(), methods);
 				for (MethodDescription methodDescription : methodDescriptions) {
-					CtMethod ctMethod;
+					CtBehavior ctBehavior;
 					try {
-						ctMethod = methodDescription.inClass(ctClass);
+						ctBehavior = methodDescription.inClass(ctClass);
 					} catch (Throwable t) {
 						if (!attributes.containsKey("allowMissing")) {
 							PatcherLog.warn("", t);
 						}
 						continue;
 					}
-					run(ctMethod, attributes, patchClassInstance);
+					run(ctBehavior, attributes, patchClassInstance);
 				}
 			}
 			return null;

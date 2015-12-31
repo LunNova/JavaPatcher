@@ -1,8 +1,8 @@
 package me.nallar.javapatcher.mappings;
 
 import com.google.common.base.Splitter;
+import javassist.CtBehavior;
 import javassist.CtClass;
-import javassist.CtMethod;
 import me.nallar.javapatcher.PatcherLog;
 
 import java.lang.reflect.*;
@@ -29,7 +29,7 @@ public class MethodDescription {
 		this(method.getDeclaringClass().getCanonicalName(), method.getName(), getJVMName(method.getReturnType()), getParameterList(method));
 	}
 
-	private MethodDescription(CtMethod ctMethod) {
+	private MethodDescription(CtBehavior ctMethod) {
 		this(ctMethod.getDeclaringClass().getName(), ctMethod.getName(), ctMethod.getSignature());
 	}
 
@@ -148,9 +148,9 @@ public class MethodDescription {
 		return !this.parameters.isEmpty() || !this.returnType.isEmpty();
 	}
 
-	public CtMethod inClass(CtClass ctClass) {
-		CtMethod possible = null;
-		for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
+	public CtBehavior inClass(CtClass ctClass) {
+		CtBehavior possible = null;
+		for (CtBehavior ctMethod : ctClass.getDeclaredBehaviors()) {
 			MethodDescription methodDescription = new MethodDescription(ctMethod);
 			if (methodDescription.equals(this)) {
 				return ctMethod;
@@ -165,7 +165,7 @@ public class MethodDescription {
 		if (possible != null) {
 			return possible;
 		}
-		for (CtMethod ctMethod : ctClass.getDeclaredMethods()) {
+		for (CtBehavior ctMethod : ctClass.getDeclaredMethods()) {
 			if (new MethodDescription(ctMethod).similar(this)) {
 				return ctMethod;
 			}
