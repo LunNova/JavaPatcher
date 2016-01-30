@@ -140,8 +140,8 @@ public class MethodDescription {
 			|| (other instanceof Method && new MethodDescription((Method) other).equals(this));
 	}
 
-	boolean similar(Object other) {
-		return this == other || (other instanceof MethodDescription && ((MethodDescription) other).getShortName().equals(this.getShortName())) || (other instanceof Method && new MethodDescription((Method) other).similar(this));
+	boolean similar(MethodDescription other) {
+		return this == other || this.getShortName().equals(other.getShortName());
 	}
 
 	public boolean isExact() {
