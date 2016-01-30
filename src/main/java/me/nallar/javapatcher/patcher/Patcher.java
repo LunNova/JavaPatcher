@@ -78,6 +78,20 @@ public class Patcher {
 		}
 	}
 
+	private static void saveByteCode(byte[] bytes, String name) {
+		if (!debugPatchedOutput.isEmpty()) {
+			name = name.replace('.', '/') + ".class";
+			File file = new File(debugPatchedOutput + '/' + name);
+			//noinspection ResultOfMethodCallIgnored
+			file.getParentFile().mkdirs();
+			try {
+				Files.write(bytes, file);
+			} catch (IOException e) {
+				PatcherLog.error("Failed to save patched bytes for " + name, e);
+			}
+		}
+	}
+
 	/**
 	 * Convenience method which reads an XML document from the input stream and passes it to readPatchesFromXMLDocument
 	 *
@@ -196,17 +210,60 @@ public class Patcher {
 		}
 	}
 
-	private static void saveByteCode(byte[] bytes, String name) {
-		if (!debugPatchedOutput.isEmpty()) {
-			name = name.replace('.', '/') + ".class";
-			File file = new File(debugPatchedOutput + '/' + name);
-			//noinspection ResultOfMethodCallIgnored
-			file.getParentFile().mkdirs();
-			try {
-				Files.write(bytes, file);
-			} catch (IOException e) {
-				PatcherLog.error("Failed to save patched bytes for " + name, e);
+	private void obfuscateAttributesAndTextContent(Element root) {
+		// TODO - reimplement environments?
+		/*
+		for (Element classElement : DomUtil.children(root.getChildNodes())) {
+			String env = classElement.getAttribute("env");
+			if (env != null && !env.isEmpty()) {
+				if (!env.equals(getEnv())) {
+					root.removeChild(classElement);
+				}
 			}
+		}
+		*/
+		for (Element element : DomUtil.children(root)) {
+			if (!DomUtil.children(element).isEmpty()) {
+				obfuscateAttributesAndTextContent(element);
+			} else if (element.getTextContent() != null && !element.getTextContent().isEmpty()) {
+				element.setTextContent(mappings.obfuscate(element.getTextContent()));
+			}
+			Map<String, String> attributes = DomUtil.getAttributes(element);
+			for (Map.Entry<String, String> attributeEntry : attributes.entrySet()) {
+				element.setAttribute(attributeEntry.getKey(), mappings.obfuscate(attributeEntry.getValue()));
+			}
+		}
+		for (Element element : DomUtil.children(root)) {
+			String id = element.getAttribute("id");
+			ArrayList<String> list = Lists.newArrayList(idSplitter.split(id));
+			if (list.size() > 1) {
+				for (String className : list) {
+					Element newClassElement = (Element) element.cloneNode(true);
+					newClassElement.setAttribute("id", className.trim());
+					element.getParentNode().insertBefore(newClassElement, element);
+				}
+				element.getParentNode().removeChild(element);
+			}
+		}
+	}
+
+	private void loadPatchGroup(Element e) {
+		Map<String, String> attributes = DomUtil.getAttributes(e);
+		String requiredProperty = attributes.get("requireProperty");
+		if (requiredProperty != null && !requiredProperty.isEmpty() && !Boolean.getBoolean(requiredProperty)) {
+			// Required property attribute isn't set as system property
+			return;
+		}
+		obfuscateAttributesAndTextContent(e);
+		val patchElements = DomUtil.children(e);
+		for (Element classElement : patchElements) {
+			ClassPatchDescriptor classPatchDescriptor;
+			try {
+				classPatchDescriptor = new ClassPatchDescriptor(classElement);
+			} catch (Throwable t) {
+				throw new RuntimeException("Failed to create class patch for " + classElement.getAttribute("id"), t);
+			}
+			patches.put(classPatchDescriptor.name, classPatchDescriptor);
 		}
 	}
 
@@ -363,63 +420,6 @@ public class Patcher {
 		@Override
 		public String toString() {
 			return name;
-		}
-	}
-
-	private void obfuscateAttributesAndTextContent(Element root) {
-		// TODO - reimplement environments?
-		/*
-		for (Element classElement : DomUtil.children(root.getChildNodes())) {
-			String env = classElement.getAttribute("env");
-			if (env != null && !env.isEmpty()) {
-				if (!env.equals(getEnv())) {
-					root.removeChild(classElement);
-				}
-			}
-		}
-		*/
-		for (Element element : DomUtil.children(root)) {
-			if (!DomUtil.children(element).isEmpty()) {
-				obfuscateAttributesAndTextContent(element);
-			} else if (element.getTextContent() != null && !element.getTextContent().isEmpty()) {
-				element.setTextContent(mappings.obfuscate(element.getTextContent()));
-			}
-			Map<String, String> attributes = DomUtil.getAttributes(element);
-			for (Map.Entry<String, String> attributeEntry : attributes.entrySet()) {
-				element.setAttribute(attributeEntry.getKey(), mappings.obfuscate(attributeEntry.getValue()));
-			}
-		}
-		for (Element element : DomUtil.children(root)) {
-			String id = element.getAttribute("id");
-			ArrayList<String> list = Lists.newArrayList(idSplitter.split(id));
-			if (list.size() > 1) {
-				for (String className : list) {
-					Element newClassElement = (Element) element.cloneNode(true);
-					newClassElement.setAttribute("id", className.trim());
-					element.getParentNode().insertBefore(newClassElement, element);
-				}
-				element.getParentNode().removeChild(element);
-			}
-		}
-	}
-
-	private void loadPatchGroup(Element e) {
-		Map<String, String> attributes = DomUtil.getAttributes(e);
-		String requiredProperty = attributes.get("requireProperty");
-		if (requiredProperty != null && !requiredProperty.isEmpty() && !Boolean.getBoolean(requiredProperty)) {
-			// Required property attribute isn't set as system property
-			return;
-		}
-		obfuscateAttributesAndTextContent(e);
-		val patchElements = DomUtil.children(e);
-		for (Element classElement : patchElements) {
-			ClassPatchDescriptor classPatchDescriptor;
-			try {
-				classPatchDescriptor = new ClassPatchDescriptor(classElement);
-			} catch (Throwable t) {
-				throw new RuntimeException("Failed to create class patch for " + classElement.getAttribute("id"), t);
-			}
-			patches.put(classPatchDescriptor.name, classPatchDescriptor);
 		}
 	}
 
