@@ -2,6 +2,9 @@
 # and leave all files detected as binary untouched.
 * text=auto eol=lf
 
+# .bat must be crlf to work
+*.bat text eol=crlf
+
 #
 # The above will handle all files NOT found below
 #
