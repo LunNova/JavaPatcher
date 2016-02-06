@@ -1105,9 +1105,8 @@ public class Patches {
 		ctBehavior.setModifiers(ctBehavior.getModifiers() & ~Modifier.SYNCHRONIZED);
 	}
 
-	@Patch(requiredAttributes = "from,to")
+	@Patch(requiredAttributes = "to")
 	public void clone(CtMethod method, Map<String, String> attributes) throws CannotCompileException {
-		String from = attributes.get("from");
 		String to = attributes.get("to");
 		CtMethod copy = CtNewMethod.copy(method, method.getDeclaringClass(), null);
 		copy.setName(to);
