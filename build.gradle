@@ -5,7 +5,7 @@ apply plugin: 'idea'
 sourceCompatibility = JavaVersion.VERSION_1_7
 targetCompatibility = JavaVersion.VERSION_1_7
 
-version = '1.2-SNAPSHOT'
+version = '1.2'
 group = 'me.nallar'
 archivesBaseName = 'javapatcher'
 
