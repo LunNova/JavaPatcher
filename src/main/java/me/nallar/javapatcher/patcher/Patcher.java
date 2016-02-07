@@ -92,33 +92,54 @@ public class Patcher {
 		}
 	}
 
+
 	/**
-	 * Convenience method which reads an XML document from the input stream and passes it to readPatchesFromXMLDocument
+	 * Convenience method which reads a patch from an inputstream then passes it to loadPatches
 	 *
 	 * @param inputStream input stream to read from
 	 */
+	public void loadPatches(InputStream inputStream) {
+		loadPatches(DomUtil.readInputStreamToString(inputStream));
+	}
+
+	/**
+	 * Loads patches from the given string.
+	 *
+	 * Currently XML and JSON are supported
+	 *
+	 * @param patch patch to load
+	 */
+	@SuppressWarnings("deprecation")
+	public void loadPatches(String patch) {
+		switch (patch.charAt(0)) {
+			case '<':
+				readPatchesFromXmlString(patch);
+				break;
+			case '[':
+			case '{':
+				readPatchesFromJsonString(patch);
+				break;
+			default:
+				throw new RuntimeException("Unknown patch format for " + patch);
+		}
+	}
+
+	@Deprecated
 	public void readPatchesFromXmlInputStream(InputStream inputStream) {
 		readPatchesFromXmlString(DomUtil.readInputStreamToString(inputStream));
 	}
 
-	/**
-	 * Convenience method which reads an XML document from the input stream and passes it to readPatchesFromXMLDocument
-	 *
-	 * @param inputStream input stream to read from
-	 */
+	@Deprecated
 	public void readPatchesFromJsonInputStream(InputStream inputStream) {
 		readPatchesFromJsonString(DomUtil.readInputStreamToString(inputStream));
 	}
 
+	@Deprecated
 	public void readPatchesFromJsonString(String json) {
 		readPatchesFromXmlString(DomUtil.makePatchXmlFromJson(json));
 	}
 
-	/**
-	 * Reads patches from the given XML Document
-	 *
-	 * @param document XML document
-	 */
+	@Deprecated
 	public void readPatchesFromXmlString(String document) {
 		try {
 			readPatchesFromXmlDocument(DomUtil.readDocumentFromString(document));
