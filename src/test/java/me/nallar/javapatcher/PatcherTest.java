@@ -7,6 +7,6 @@ public class PatcherTest {
 	// TODO - proper unit tests?
 	public static void main(String[] args) {
 		Patcher p = new Patcher(ClassPool.getDefault());
-		p.readPatchesFromJsonInputStream(PatcherTest.class.getResourceAsStream("/modpatcher.json"));
+		p.loadPatches(PatcherTest.class.getResourceAsStream("/modpatcher.json"));
 	}
 }

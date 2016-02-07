@@ -94,7 +94,7 @@ public class Patcher {
 
 
 	/**
-	 * Convenience method which reads a patch from an inputstream then passes it to loadPatches
+	 * Convenience method which reads a patch from an InputStream then passes it to loadPatches
 	 *
 	 * @param inputStream input stream to read from
 	 */
