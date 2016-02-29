@@ -14,7 +14,9 @@ public @interface Patch {
 	// Required attributes, comma delimited. Default "" = none
 	String requiredAttributes() default "";
 
-	// If the constructor should be passed if no method is given and ambiguous parameters
-	// Else, gives class
+	/**
+	 * If the constructor should be passed if no method is given and ambiguous parameters
+	 * Else, gives class
+	 */
 	boolean emptyConstructor() default true;
 }
