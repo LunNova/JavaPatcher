@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'idea'
 
-version = '1.3'
+version = '1.4'
 group = 'me.nallar'
 archivesBaseName = 'JavaPatcher'
 
