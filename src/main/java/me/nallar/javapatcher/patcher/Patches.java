@@ -603,8 +603,9 @@ public class Patches {
 	@Patch
 	public void replaceMethodCall(final CtBehavior ctBehavior, Map<String, String> attributes) throws CannotCompileException {
 		String method_ = attributes.get("method");
+		final String methodPrefix = attributes.get("methodPrefix");
 		if (method_ == null) {
-			method_ = "";
+			method_ = methodPrefix == null ? "" : methodPrefix;
 		}
 		String className_ = null;
 		int dotIndex = method_.lastIndexOf('.');
@@ -638,7 +639,7 @@ public class Patches {
 
 				@Override
 				public void edit(MethodCall methodCall) throws CannotCompileException {
-					if ((className == null || methodCall.getClassName().equals(className)) && (method.isEmpty() || methodCall.getMethodName().equals(method)) && (index == -1 || currentIndex++ == index)) {
+					if ((className == null || methodCall.getClassName().equals(className)) && (method.isEmpty() || methodCall.getMethodName().equals(method) || methodPrefix != null && methodCall.getMethodName().startsWith(methodPrefix)) && (index == -1 || currentIndex++ == index)) {
 						if (newMethod != null) {
 							try {
 								CtMethod oldMethod = methodCall.getMethod();
