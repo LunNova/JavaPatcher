@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'idea'
 
-version = '1.4'
+version = '1.5'
 group = 'me.nallar'
 archivesBaseName = 'JavaPatcher'
 
@@ -41,8 +41,8 @@ configurations {
 dependencies {
 	provided 'org.apache.logging.log4j:log4j-core:2.0.2'
 	provided 'com.google.guava:guava:18.0'
-	provided 'org.javassist:javassist:3.20.0-GA'
-	provided 'org.projectlombok:lombok:1.16.4'
+	provided 'org.javassist:javassist:3.21.0-GA'
+	provided 'org.projectlombok:lombok:1.16.16'
 	compile 'org.json:json:20090211'
 }
 
