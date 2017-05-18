@@ -2,7 +2,7 @@ apply plugin: 'java'
 apply plugin: 'maven'
 apply plugin: 'idea'
 
-version = '1.5'
+version = '1.6'
 group = 'me.nallar'
 archivesBaseName = 'JavaPatcher'
 
@@ -30,29 +30,16 @@ tasks.withType(JavaCompile) {
 }
 
 repositories {
-	mavenCentral()
-}
-
-configurations {
-	provided
-	compile.extendsFrom provided
+	jcenter()
 }
 
 dependencies {
-	provided 'org.apache.logging.log4j:log4j-core:2.0.2'
-	provided 'com.google.guava:guava:18.0'
-	provided 'org.javassist:javassist:3.21.0-GA'
-	provided 'org.projectlombok:lombok:1.16.16'
+	compile 'org.apache.logging.log4j:log4j-core:2.0.2'
+	compile 'com.google.guava:guava:18.0'
+	compile 'org.javassist:javassist:3.21.0-GA'
 	compile 'org.json:json:20090211'
-}
-
-jar {
-	duplicatesStrategy = DuplicatesStrategy.EXCLUDE
-	from((configurations.runtime - configurations.provided).filter { it.exists() }.collect {
-		it.isDirectory() ? it : zipTree(it)
-	}) {
-		exclude "META-INF/**"
-	}
+	compileOnly 'org.projectlombok:lombok:1.16.16'
+	testCompileOnly 'org.projectlombok:lombok:1.16.16'
 }
 
 jar.manifest.mainAttributes(
