@@ -7,6 +7,7 @@ import com.google.common.collect.Multimap;
 import com.google.common.collect.MultimapBuilder;
 import com.google.common.io.Files;
 import javassist.*;
+import lombok.ToString;
 import lombok.val;
 import me.nallar.javapatcher.PatcherLog;
 import me.nallar.javapatcher.mappings.*;
@@ -288,10 +289,11 @@ public class Patcher {
 		}
 	}
 
+	@ToString
 	private static class PatchDescriptor {
-		private final Map<String, String> attributes;
-		private final String patch;
 		private String methods;
+		private final String patch;
+		private final Map<String, String> attributes;
 
 		PatchDescriptor(Element element) {
 			attributes = DomUtil.getAttributes(element);
@@ -444,6 +446,7 @@ public class Patcher {
 		}
 	}
 
+	@ToString
 	public class ClassPatchDescriptor {
 		public final String name;
 		public final List<PatchDescriptor> patches = new ArrayList<>();
