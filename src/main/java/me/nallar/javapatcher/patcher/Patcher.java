@@ -135,13 +135,11 @@ public class Patcher {
 		readPatchesFromJsonString(DomUtil.readInputStreamToString(inputStream));
 	}
 
-	@Deprecated
-	public void readPatchesFromJsonString(String json) {
+	private void readPatchesFromJsonString(String json) {
 		readPatchesFromXmlString(DomUtil.makePatchXmlFromJson(json));
 	}
 
-	@Deprecated
-	public void readPatchesFromXmlString(String document) {
+	private void readPatchesFromXmlString(String document) {
 		try {
 			readPatchesFromXmlDocument(DomUtil.readDocumentFromString(document));
 		} catch (IOException | SAXException e) {
