@@ -220,16 +220,6 @@ public class Patcher {
 		}
 	}
 
-	/**
-	 * Writes debug info about this patcher to the debug logger
-	 */
-	public void logDebugInfo() {
-		PatcherLog.info("Logging Patcher debug info of " + patches.size() + " class patches");
-		for (ClassPatchDescriptor classPatch : patches.values()) {
-			PatcherLog.info(classPatch.toString());
-		}
-	}
-
 	private void obfuscateAttributesAndTextContent(Element root) {
 		// TODO - reimplement environments?
 		/*
@@ -284,10 +274,11 @@ public class Patcher {
 				throw new RuntimeException("Failed to create class patch for " + classElement.getAttribute("id"), t);
 			}
 			patches.put(classPatchDescriptor.name, classPatchDescriptor);
+			PatcherLog.info("Added patch " + e.getTagName() + ": " + classPatchDescriptor.toString());
 		}
 	}
 
-	@ToString
+	@ToString(exclude = "attributes")
 	private static class PatchDescriptor {
 		private String methods;
 		private final String patch;
@@ -338,7 +329,7 @@ public class Patcher {
 			} else {
 				this.requiredAttributes = null;
 			}
-			if (name == null || name.isEmpty()) {
+			if (name.isEmpty()) {
 				name = method.getName();
 			}
 			this.name = name;
@@ -444,7 +435,7 @@ public class Patcher {
 		}
 	}
 
-	@ToString
+	@ToString(exclude = "attributes")
 	public class ClassPatchDescriptor {
 		public final String name;
 		public final List<PatchDescriptor> patches = new ArrayList<>();
